@@ -1,0 +1,47 @@
+<div class="inbox">
+  <aside class="conversation-list">
+    <h2>Conversas</h2>
+    <ul>
+      @for (conv of conversations(); track conv.id) {
+        <li
+          [class.active]="selectedConversation()?.id === conv.id"
+          (click)="select(conv)">
+          <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
+          <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
+        </li>
+      } @empty {
+        <li class="empty">Nenhuma conversa ainda.</li>
+      }
+    </ul>
+  </aside>
+
+  <section class="chat-panel">
+    @if (selectedConversation(); as conv) {
+      <header>
+        <h3>{{ conv.contact.name || conv.contact.phoneNumber }}</h3>
+      </header>
+
+      <div class="messages">
+        @for (msg of conv.messages; track msg.id) {
+          <div class="message" [class.outbound]="msg.direction === 'Outbound'">
+            <p>{{ msg.content }}</p>
+            @if (msg.aiGenerated) {
+              <span class="ai-badge">gerado por IA</span>
+            }
+          </div>
+        }
+      </div>
+
+      <footer>
+        <input
+          type="text"
+          placeholder="Digite uma mensagem..."
+          [(ngModel)]="draftMessage"
+          (keyup.enter)="send()" />
+        <button (click)="send()">Enviar</button>
+      </footer>
+    } @else {
+      <p class="empty">Selecione uma conversa</p>
+    }
+  </section>
+</div>

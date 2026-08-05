@@ -1,0 +1,61 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Números de WhatsApp</h1>
+      <p>Conecte um ou mais números para receber e responder mensagens.</p>
+    </div>
+  </header>
+
+  <div class="create-card">
+    <input
+      type="text"
+      placeholder="Nome do número (ex: Recepção, Financeiro)"
+      [(ngModel)]="newLabel"
+      (keyup.enter)="create()" />
+    <button (click)="create()" [disabled]="creating()">
+      {{ creating() ? 'Criando...' : '+ Conectar número' }}
+    </button>
+  </div>
+
+  <div class="connections-grid">
+    @for (conn of connections(); track conn.id) {
+      <div class="connection-card">
+        <div class="connection-info">
+          <div class="connection-label">{{ conn.label }}</div>
+          <div class="connection-phone">{{ conn.phoneNumber || 'Ainda não conectado' }}</div>
+        </div>
+
+        <div class="connection-status" [class.connected]="conn.isConnected">
+          <span class="dot"></span>
+          {{ conn.isConnected ? 'Conectado' : 'Desconectado' }}
+        </div>
+
+        <div class="connection-actions">
+          @if (!conn.isConnected) {
+            <button class="btn-secondary" (click)="showQrCode(conn)">Ver QR Code</button>
+          }
+          <button class="btn-ghost" (click)="checkStatus(conn)">Atualizar status</button>
+        </div>
+      </div>
+    } @empty {
+      <p class="empty-state">Nenhum número conectado ainda. Crie o primeiro acima.</p>
+    }
+  </div>
+
+  @if (qrCodeFor()) {
+    <div class="qr-modal-backdrop" (click)="closeQrCode()">
+      <div class="qr-modal" (click)="$event.stopPropagation()">
+        <h3>Escaneie com o WhatsApp</h3>
+        <p>Abra o WhatsApp no celular → Aparelhos conectados → Conectar um aparelho</p>
+
+        @if (loadingQr()) {
+          <div class="qr-loading">Gerando QR Code...</div>
+        } @else if (qrCodeBase64()) {
+          <img [src]="qrCodeBase64()" alt="QR Code do WhatsApp" class="qr-image" />
+        }
+
+        <button class="btn-ghost" (click)="closeQrCode()">Fechar</button>
+      </div>
+    </div>
+  }
+</div>

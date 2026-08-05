@@ -1,0 +1,46 @@
+<div class="auth-page">
+  <div class="auth-brand">
+    <div class="brand-mark">Zappy<span>CRM</span></div>
+    <h1>Sua empresa nunca mais perde um cliente por demora no WhatsApp.</h1>
+    <p>Atendimento automático com IA, propostas geradas na hora e lembretes que se enviam sozinhos.</p>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="value">24/7</div>
+        <div class="label">resposta automática</div>
+      </div>
+      <div class="stat">
+        <div class="value">&lt;1min</div>
+        <div class="label">tempo médio de resposta</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-form-panel">
+    <form class="auth-form" (ngSubmit)="submit()">
+      <h2>Entrar</h2>
+      <p class="subtitle">Acesse o painel da sua empresa</p>
+
+      @if (errorMessage()) {
+        <div class="error-banner">{{ errorMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Senha</label>
+        <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="current-password" />
+      </div>
+
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Entrando...' : 'Entrar' }}
+      </button>
+
+      <div class="switch-link">
+        Ainda não tem conta? <a routerLink="/register">Criar conta grátis</a>
+      </div>
+    </form>
+  </div>
+</div>

@@ -13,6 +13,7 @@ namespace WhatsappCrmIA.Application.UseCases.Messaging;
 /// </summary>
 public record ProcessIncomingMessageCommand(
     Guid TenantId,
+    string InstanceName,
     string FromPhoneNumber,
     string ContactName,
     string MessageText,
@@ -41,6 +42,14 @@ public class ProcessIncomingMessageHandler
     public async Task<ProcessIncomingMessageResult> Handle(
         ProcessIncomingMessageCommand request, CancellationToken ct)
     {
+        // 0. Resolve qual número da empresa recebeu essa mensagem
+        var whatsappConnection = await _db.WhatsAppConnections
+            .FirstOrDefaultAsync(w => w.TenantId == request.TenantId
+                                       && w.InstanceName == request.InstanceName, ct);
+
+        if (whatsappConnection is null)
+            return new ProcessIncomingMessageResult(false, null);
+
         // 1. Garante o contato
         var contact = await _db.Contacts
             .FirstOrDefaultAsync(c => c.TenantId == request.TenantId
@@ -57,10 +66,12 @@ public class ProcessIncomingMessageHandler
             _db.Contacts.Add(contact);
         }
 
-        // 2. Garante a conversa aberta
+        // 2. Garante a conversa aberta (ligada a esse contato E a esse número específico)
         var conversation = await _db.Conversations
             .Include(c => c.Messages)
-            .Where(c => c.ContactId == contact.Id && c.Status != ConversationStatus.Closed)
+            .Where(c => c.ContactId == contact.Id
+                        && c.WhatsAppConnectionId == whatsappConnection.Id
+                        && c.Status != ConversationStatus.Closed)
             .OrderByDescending(c => c.LastMessageAtUtc)
             .FirstOrDefaultAsync(ct);
 
@@ -70,6 +81,7 @@ public class ProcessIncomingMessageHandler
             {
                 TenantId = request.TenantId,
                 Contact = contact,
+                WhatsAppConnectionId = whatsappConnection.Id,
                 Status = ConversationStatus.Open
             };
             _db.Conversations.Add(conversation);
@@ -120,14 +132,8 @@ public class ProcessIncomingMessageHandler
         }
 
         // 7. Envia a resposta automaticamente
-        var whatsappConnection = await _db.WhatsAppConnections
-            .FirstOrDefaultAsync(w => w.TenantId == request.TenantId, ct);
-
-        if (whatsappConnection is not null)
-        {
-            await _whatsApp.SendTextMessageAsync(
-                whatsappConnection.InstanceName, request.FromPhoneNumber, aiResult.ReplyText, ct);
-        }
+        await _whatsApp.SendTextMessageAsync(
+            whatsappConnection.InstanceName, request.FromPhoneNumber, aiResult.ReplyText, ct);
 
         _db.Messages.Add(new Message
         {

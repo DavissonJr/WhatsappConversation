@@ -1,0 +1,65 @@
+<div class="auth-page">
+  <div class="auth-brand">
+    <div class="brand-mark">Zappy<span>CRM</span></div>
+    <h1>Comece a atender pelo WhatsApp com IA em poucos minutos.</h1>
+    <p>Conecte seu número, configure o assistente virtual e deixe a IA cuidar do primeiro contato.</p>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="value">Grátis</div>
+        <div class="label">para começar</div>
+      </div>
+      <div class="stat">
+        <div class="value">5 min</div>
+        <div class="label">para configurar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-form-panel">
+    <form class="auth-form" (ngSubmit)="submit()">
+      <h2>Criar conta</h2>
+      <p class="subtitle">Cadastre sua empresa e comece agora</p>
+
+      @if (errorMessage()) {
+        <div class="error-banner">{{ errorMessage() }}</div>
+      }
+
+      <div class="field">
+        <label for="companyName">Nome da empresa</label>
+        <input id="companyName" type="text" [(ngModel)]="companyName" name="companyName" required />
+      </div>
+
+      <div class="field">
+        <label for="segment">Segmento</label>
+        <select id="segment" [(ngModel)]="segment" name="segment">
+          @for (opt of segments; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="fullName">Seu nome</label>
+        <input id="fullName" type="text" [(ngModel)]="fullName" name="fullName" required autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
+      </div>
+
+      <div class="field">
+        <label for="password">Senha</label>
+        <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="new-password" minlength="6" />
+      </div>
+
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Criando conta...' : 'Criar conta grátis' }}
+      </button>
+
+      <div class="switch-link">
+        Já tem conta? <a routerLink="/login">Entrar</a>
+      </div>
+    </form>
+  </div>
+</div>

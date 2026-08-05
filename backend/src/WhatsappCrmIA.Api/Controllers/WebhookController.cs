@@ -6,7 +6,7 @@ namespace WhatsappCrmIA.Api.Controllers;
 
 /// <summary>
 /// Recebe os eventos da Evolution API (mensagens recebidas via WhatsApp).
-/// Configure esta URL como webhook da instância: POST /webhook/evolution/{tenantId}
+/// Configure esta URL como webhook da instância: POST /webhook/evolution/{tenantId}/{instanceName}
 /// </summary>
 [ApiController]
 [Route("webhook/evolution")]
@@ -16,8 +16,9 @@ public class WebhookController : ControllerBase
 
     public WebhookController(IMediator mediator) => _mediator = mediator;
 
-    [HttpPost("{tenantId:guid}")]
-    public async Task<IActionResult> ReceiveMessage(Guid tenantId, [FromBody] EvolutionWebhookPayload payload)
+    [HttpPost("{tenantId:guid}/{instanceName}")]
+    public async Task<IActionResult> ReceiveMessage(
+        Guid tenantId, string instanceName, [FromBody] EvolutionWebhookPayload payload)
     {
         // A Evolution API dispara vários tipos de evento (connection.update, messages.upsert, etc).
         // Aqui tratamos apenas mensagens de texto recebidas (simplificado para o MVP).
@@ -29,6 +30,7 @@ public class WebhookController : ControllerBase
 
         var result = await _mediator.Send(new ProcessIncomingMessageCommand(
             TenantId: tenantId,
+            InstanceName: instanceName,
             FromPhoneNumber: payload.Data.Key?.RemoteJid?.Split('@').FirstOrDefault() ?? string.Empty,
             ContactName: payload.Data.PushName ?? "Contato",
             MessageText: payload.Data.Message.Conversation,

@@ -15,6 +15,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<AiAgentConfig> AiAgentConfigs => Set<AiAgentConfig>();
     public DbSet<WhatsAppConnection> WhatsAppConnections => Set<WhatsAppConnection>();
     public DbSet<Contact> Contacts => Set<Contact>();
@@ -23,6 +24,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Proposal> Proposals => Set<Proposal>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
+    public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +32,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
         // Isolamento multi-tenant: todo select automaticamente filtra pelo tenant atual.
         // IMPORTANTE: comandos administrativos/cross-tenant precisam usar IgnoreQueryFilters().
+        // Users NÃO tem filtro: o login precisa localizar o usuário pelo e-mail
+        // antes mesmo de sabermos qual é o tenant atual.
         modelBuilder.Entity<AiAgentConfig>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<WhatsAppConnection>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<Contact>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
@@ -38,6 +42,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Proposal>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<Appointment>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<Reminder>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
+        modelBuilder.Entity<MessageTemplate>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
 
         base.OnModelCreating(modelBuilder);
     }

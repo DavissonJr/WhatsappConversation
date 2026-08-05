@@ -3,9 +3,9 @@ using WhatsappCrmIA.Application.Interfaces;
 namespace WhatsappCrmIA.Infrastructure.Services;
 
 /// <summary>
-/// Lê o TenantId da claim "tenant_id" do usuário autenticado.
+/// Lê o TenantId da claim "tenant_id" do usuário autenticado (emitida no login/registro).
 /// Para chamadas internas (webhook do WhatsApp), o controller resolve
-/// o tenant pelo instanceName e usa um escopo próprio — ver WebhookController.
+/// o tenant pelo parâmetro da URL e não depende deste serviço.
 /// </summary>
 public class CurrentTenantService : ICurrentTenantService
 {

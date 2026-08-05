@@ -1,7 +1,44 @@
 import { Routes } from '@angular/router';
-import { InboxComponent } from './features/inbox/inbox.component';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
-  { path: '', component: InboxComponent },
-  { path: 'inbox', component: InboxComponent },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+  },
+  {
+    path: 'register',
+    loadComponent: () =>
+      import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
+  },
+  {
+    path: '',
+    loadComponent: () =>
+      import('./layout/shell/shell.component').then((m) => m.ShellComponent),
+    canActivate: [authGuard],
+    children: [
+      { path: '', redirectTo: 'inbox', pathMatch: 'full' },
+      {
+        path: 'inbox',
+        loadComponent: () =>
+          import('./features/inbox/inbox.component').then((m) => m.InboxComponent),
+      },
+      {
+        path: 'numeros',
+        loadComponent: () =>
+          import('./features/whatsapp-connections/whatsapp-connections.component').then(
+            (m) => m.WhatsAppConnectionsComponent,
+          ),
+      },
+      {
+        path: 'modelos',
+        loadComponent: () =>
+          import('./features/message-templates/message-templates.component').then(
+            (m) => m.MessageTemplatesComponent,
+          ),
+      },
+    ],
+  },
+  { path: '**', redirectTo: '' },
 ];

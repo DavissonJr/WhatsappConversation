@@ -10,6 +10,7 @@ namespace WhatsappCrmIA.Application.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<Tenant> Tenants { get; }
+    DbSet<User> Users { get; }
     DbSet<AiAgentConfig> AiAgentConfigs { get; }
     DbSet<WhatsAppConnection> WhatsAppConnections { get; }
     DbSet<Contact> Contacts { get; }
@@ -18,6 +19,7 @@ public interface IApplicationDbContext
     DbSet<Proposal> Proposals { get; }
     DbSet<Appointment> Appointments { get; }
     DbSet<Reminder> Reminders { get; }
+    DbSet<MessageTemplate> MessageTemplates { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

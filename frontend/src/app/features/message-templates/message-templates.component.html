@@ -1,0 +1,62 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Modelos de mensagem</h1>
+      <p>Textos prontos por escopo — cobrança, lembrete, boas-vindas e mais.</p>
+    </div>
+    <button class="btn-primary" (click)="openCreateForm()">+ Novo modelo</button>
+  </header>
+
+  <div class="templates-grid">
+    @for (t of templates(); track t.id) {
+      <div class="template-card">
+        <div class="template-header">
+          <span class="scope-badge" [attr.data-scope]="t.scope">{{ scopeLabels[t.scope] }}</span>
+          @if (!t.isActive) { <span class="inactive-badge">Inativo</span> }
+        </div>
+        <div class="template-name">{{ t.name }}</div>
+        <p class="template-content">{{ t.content }}</p>
+        <div class="template-actions">
+          <button class="btn-ghost" (click)="openEditForm(t)">Editar</button>
+          <button class="btn-ghost danger" (click)="remove(t)">Remover</button>
+        </div>
+      </div>
+    } @empty {
+      <p class="empty-state">Nenhum modelo criado ainda. Crie o primeiro para agilizar seu atendimento.</p>
+    }
+  </div>
+
+  @if (showForm()) {
+    <div class="modal-backdrop" (click)="cancelForm()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>{{ editingId() ? 'Editar modelo' : 'Novo modelo' }}</h3>
+
+        <div class="field">
+          <label>Nome</label>
+          <input type="text" [(ngModel)]="formName" placeholder="Ex: Lembrete de consulta 24h antes" />
+        </div>
+
+        <div class="field">
+          <label>Escopo</label>
+          <select [(ngModel)]="formScope">
+            @for (s of scopes; track s) {
+              <option [value]="s">{{ scopeLabels[s] }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Conteúdo</label>
+          <textarea rows="5" [(ngModel)]="formContent" placeholder="Olá {{ '{' }}nome{{ '}' }}, passando para lembrar..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" (click)="cancelForm()">Cancelar</button>
+          <button class="btn-primary" (click)="save()" [disabled]="saving()">
+            {{ saving() ? 'Salvando...' : 'Salvar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

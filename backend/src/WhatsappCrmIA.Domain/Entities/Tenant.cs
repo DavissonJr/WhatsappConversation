@@ -18,6 +18,6 @@ public class Tenant
     // Config do agente de IA para este tenant
     public AiAgentConfig? AiAgentConfig { get; set; }
 
-    // Config da conexão WhatsApp (Evolution API instance) para este tenant
-    public WhatsAppConnection? WhatsAppConnection { get; set; }
+    // Um tenant pode conectar vários números de WhatsApp
+    public ICollection<WhatsAppConnection> WhatsAppConnections { get; set; } = new List<WhatsAppConnection>();
 }

@@ -25,20 +25,36 @@ builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
 builder.Services.AddHttpClient<IWhatsAppGateway, EvolutionApiWhatsAppGateway>();
 builder.Services.AddHttpClient<IAiAgentService, ClaudeAiAgentService>();
 
+// ---- Autenticação (hash de senha + emissão de JWT próprio) ----
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
 // ---- Jobs agendados (lembretes) ----
 builder.Services.AddHangfire(cfg => cfg
     .UsePostgreSqlStorage(opt =>
         opt.UseNpgsqlConnection(builder.Configuration.GetConnectionString("Default"))));
 builder.Services.AddHangfireServer();
 
-// ---- Auth (JWT) ----
+// ---- Auth (JWT emitido pela própria API) ----
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? throw new InvalidOperationException("Jwt:Secret não configurado.");
+
 builder.Services
     .AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = builder.Configuration["Jwt:Authority"];
-        options.Audience = builder.Configuration["Jwt:Audience"];
-        // Em dev local sem provedor de identidade configurado, ajuste conforme necessário.
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(jwtSecret)),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(2)
+        };
     });
 builder.Services.AddAuthorization();
 
@@ -52,7 +68,10 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();

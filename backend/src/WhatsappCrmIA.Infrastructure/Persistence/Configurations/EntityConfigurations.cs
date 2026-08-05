@@ -4,6 +4,33 @@ using WhatsappCrmIA.Domain.Entities;
 
 namespace WhatsappCrmIA.Infrastructure.Persistence.Configurations;
 
+public class UserConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> builder)
+    {
+        builder.HasIndex(u => u.Email).IsUnique();
+        builder.Property(u => u.Email).HasMaxLength(200).IsRequired();
+        builder.Property(u => u.FullName).HasMaxLength(200).IsRequired();
+    }
+}
+
+public class WhatsAppConnectionConfiguration : IEntityTypeConfiguration<WhatsAppConnection>
+{
+    public void Configure(EntityTypeBuilder<WhatsAppConnection> builder)
+    {
+        builder.HasIndex(c => c.InstanceName).IsUnique();
+    }
+}
+
+public class MessageTemplateConfiguration : IEntityTypeConfiguration<MessageTemplate>
+{
+    public void Configure(EntityTypeBuilder<MessageTemplate> builder)
+    {
+        builder.Property(t => t.Name).HasMaxLength(200).IsRequired();
+        builder.Property(t => t.Content).HasMaxLength(4000).IsRequired();
+    }
+}
+
 public class ContactConfiguration : IEntityTypeConfiguration<Contact>
 {
     public void Configure(EntityTypeBuilder<Contact> builder)
@@ -22,6 +49,11 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
             .WithMany(ct => ct.Conversations)
             .HasForeignKey(c => c.ContactId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(c => c.WhatsAppConnection)
+            .WithMany()
+            .HasForeignKey(c => c.WhatsAppConnectionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

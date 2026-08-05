@@ -169,9 +169,14 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("WhatsAppConnectionId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ContactId");
+
+                    b.HasIndex("WhatsAppConnectionId");
 
                     b.ToTable("Conversations");
                 });
@@ -216,6 +221,42 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.HasIndex("ConversationId");
 
                     b.ToTable("Messages");
+                });
+
+            modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.MessageTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MessageTemplates");
                 });
 
             modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.Proposal", b =>
@@ -338,6 +379,49 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.ToTable("Tenants");
                 });
 
+            modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.WhatsAppConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -357,6 +441,10 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.Property<bool>("IsConnected")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 
@@ -371,8 +459,10 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
+                    b.HasIndex("InstanceName")
                         .IsUnique();
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("WhatsAppConnections");
                 });
@@ -405,7 +495,15 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("WhatsappCrmIA.Domain.Entities.WhatsAppConnection", "WhatsAppConnection")
+                        .WithMany()
+                        .HasForeignKey("WhatsAppConnectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Contact");
+
+                    b.Navigation("WhatsAppConnection");
                 });
 
             modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.Message", b =>
@@ -444,8 +542,8 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
             modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.WhatsAppConnection", b =>
                 {
                     b.HasOne("WhatsappCrmIA.Domain.Entities.Tenant", null)
-                        .WithOne("WhatsAppConnection")
-                        .HasForeignKey("WhatsappCrmIA.Domain.Entities.WhatsAppConnection", "TenantId")
+                        .WithMany("WhatsAppConnections")
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -469,7 +567,7 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 {
                     b.Navigation("AiAgentConfig");
 
-                    b.Navigation("WhatsAppConnection");
+                    b.Navigation("WhatsAppConnections");
                 });
 #pragma warning restore 612, 618
         }

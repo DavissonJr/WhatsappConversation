@@ -50,29 +50,53 @@ docker compose up --build
 - Evolution API: http://localhost:8081
 - Hangfire dashboard: http://localhost:5000/jobs
 
-### 4. Gerar a primeira migration do EF Core
-Este ambiente de scaffolding não tinha o SDK do .NET disponível, então **as migrations
-ainda não foram geradas**. Rode localmente, dentro de `backend/`:
+### 4. Gerar a migration do EF Core (schema mudou — recomeçar do zero)
+
+Como o schema mudou bastante nesta versão (usuários, múltiplos números de WhatsApp,
+modelos de mensagem), a forma mais simples é apagar qualquer migration antiga e o
+volume do Postgres, e recomeçar do zero:
 
 ```bash
-dotnet tool install --global dotnet-ef   # se ainda não tiver
 cd backend
+rm -rf src/WhatsappCrmIA.Infrastructure/Migrations   # se você já tinha gerado antes
 dotnet ef migrations add InitialCreate \
-  --project src/WhatsappCrmIA.Infrastructure \
-  --startup-project src/WhatsappCrmIA.Api
-dotnet ef database update \
   --project src/WhatsappCrmIA.Infrastructure \
   --startup-project src/WhatsappCrmIA.Api
 ```
 
-### 5. Conectar um número de WhatsApp (MVP com Evolution API)
-1. Crie uma instância: `POST http://localhost:8081/instance/create` com header `apikey`
-2. Busque o QR code: `GET http://localhost:8081/instance/connect/{instanceName}`
-3. Escaneie com o WhatsApp do cliente
-4. Configure o webhook da instância para: `POST http://localhost:5000/webhook/evolution/{tenantId}`
+No Windows/PowerShell (uma linha só, sem `\`):
+```powershell
+dotnet ef migrations add InitialCreate --project src/WhatsappCrmIA.Infrastructure --startup-project src/WhatsappCrmIA.Api
+```
 
-No MVP isso deve virar uma tela no painel Angular (wizard de conexão com QR code
-renderizado), hoje é feito via chamadas diretas à Evolution API.
+### 5. Subir a stack (resete o volume do Postgres se já tinha subido antes)
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+### 6. Aplicar a migration no banco
+```bash
+dotnet ef database update \
+  --project src/WhatsappCrmIA.Infrastructure \
+  --startup-project src/WhatsappCrmIA.Api \
+  --connection "Host=localhost;Port=5432;Database=whatsappcrmia;Username=postgres;Password=postgres"
+```
+
+### 7. Criar sua conta
+Abra http://localhost:4200/register e crie sua empresa (isso já cria o tenant, o
+usuário owner e uma config padrão de IA). Depois disso você é redirecionado
+direto para o Inbox, já autenticado.
+
+### 8. Conectar um número de WhatsApp
+Na tela **Números WhatsApp** do painel, clique em "Conectar número", dê um nome
+(ex: "Recepção") e escaneie o QR code que aparece. Depois de conectado, configure
+o webhook da instância na Evolution API para apontar para:
+```
+http://<seu-host>:5000/webhook/evolution/{tenantId}/{instanceName}
+```
+(o `tenantId` e `instanceName` você pode conferir no Swagger ou no banco por enquanto —
+uma tela para copiar isso automaticamente é um próximo passo natural).
 
 ## Fluxo principal (já implementado no backend)
 
@@ -92,14 +116,31 @@ ProcessIncomingMessageCommand (MediatR)
 
 ## Roadmap sugerido (próximos passos)
 
-1. **Migrations + seed** de um tenant de teste
-2. **Autenticação**: endpoint de login/registro de tenant (Identity ou provedor externo tipo Auth0/Keycloak) emitindo JWT com a claim `tenant_id`
-3. **CRUD de conversas** no `Api` (hoje só existe o webhook de entrada — falta `GET /api/conversations`, `POST /api/conversations/{id}/messages` usados pelo frontend)
-4. **Tela de conexão WhatsApp** no Angular (QR code + status da instância)
-5. **Propostas**: endpoint que aciona `IAiAgentService.GenerateProposalDraftAsync` e tela de revisão/envio
-6. **Agendamentos + lembretes**: criar `Appointment`, agendar `Reminder` como job Hangfire que dispara `IWhatsAppGateway.SendTextMessageAsync` na hora certa
-7. **Billing**: integração com Stripe ou Mercado Pago, limites por `PlanTier`
-8. **Multi-tenant onboarding**: fluxo de cadastro self-service para o cliente final (clínica, oficina etc.)
+Já implementado nesta versão: autenticação (registro/login com JWT), múltiplos
+números de WhatsApp por tenant, modelos de mensagem por escopo, CRUD de conversas.
+
+1. **Configurar webhook automaticamente** — hoje o `tenantId`/`instanceName` do
+   webhook precisam ser copiados manualmente; o backend pode configurar isso
+   sozinho ao criar a conexão (chamando a Evolution API para setar o webhook URL)
+2. **Usar os modelos de mensagem no Inbox** — botão de "inserir modelo" na caixa
+   de resposta do atendente, com substituição de variáveis (`{nome}`, etc.)
+3. **Propostas**: endpoint que aciona `IAiAgentService.GenerateProposalDraftAsync`
+   e tela de revisão/envio
+4. **Agendamentos + lembretes**: criar `Appointment`, agendar `Reminder` como job
+   Hangfire que dispara `IWhatsAppGateway.SendTextMessageAsync` na hora certa,
+   podendo usar um `MessageTemplate` do escopo "Lembrete"
+5. **Billing**: integração com Stripe ou Mercado Pago, limites por `PlanTier`
+6. **Tela de configuração do agente de IA** (editar o `SystemPrompt`, ativar/desativar
+   auto-resposta, ativar aprovação humana) — hoje só existe um valor padrão criado no registro
+7. **SignalR** no Inbox para mensagens chegarem em tempo real, sem precisar recarregar
+
+## Segurança — antes de ir para produção
+
+- Troque `Jwt:Secret` no `appsettings.json` por um valor forte e único (hoje está
+  com um placeholder visível)
+- O `AUTHENTICATION_API_KEY` da Evolution API também está com valor placeholder —
+  troque no `docker-compose.yml`
+- Ative HTTPS e configure `Cors:AllowedOrigin` para o domínio real
 
 ## Notas de arquitetura
 

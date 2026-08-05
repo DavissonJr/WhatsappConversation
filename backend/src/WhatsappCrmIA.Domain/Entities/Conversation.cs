@@ -8,6 +8,10 @@ public class Conversation : BaseEntity
     public Guid ContactId { get; set; }
     public Contact Contact { get; set; } = default!;
 
+    // Por qual número da empresa esse contato está falando
+    public Guid WhatsAppConnectionId { get; set; }
+    public WhatsAppConnection WhatsAppConnection { get; set; } = default!;
+
     public ConversationStatus Status { get; set; } = ConversationStatus.Open;
     public ConversationIntent LastDetectedIntent { get; set; } = ConversationIntent.Unknown;
     public DateTime LastMessageAtUtc { get; set; } = DateTime.UtcNow;

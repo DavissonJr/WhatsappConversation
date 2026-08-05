@@ -70,3 +70,19 @@ public enum PlanTier
     Pro = 2,
     Business = 3
 }
+
+public enum UserRole
+{
+    Owner = 1,
+    Agent = 2
+}
+
+public enum TemplateScope
+{
+    Cobranca = 1,
+    Lembrete = 2,
+    BoasVindas = 3,
+    Orcamento = 4,
+    Agendamento = 5,
+    Outro = 6
+}

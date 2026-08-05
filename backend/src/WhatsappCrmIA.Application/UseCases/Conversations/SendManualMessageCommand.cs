@@ -16,11 +16,14 @@ public class SendManualMessageHandler : IRequestHandler<SendManualMessageCommand
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
+    private readonly INotificationService _notifications;
 
-    public SendManualMessageHandler(IApplicationDbContext db, IWhatsAppGateway whatsApp)
+    public SendManualMessageHandler(
+        IApplicationDbContext db, IWhatsAppGateway whatsApp, INotificationService notifications)
     {
         _db = db;
         _whatsApp = whatsApp;
+        _notifications = notifications;
     }
 
     public async Task<bool> Handle(SendManualMessageCommand request, CancellationToken ct)
@@ -55,6 +58,7 @@ public class SendManualMessageHandler : IRequestHandler<SendManualMessageCommand
             conversation.Status = ConversationStatus.Open;
 
         await _db.SaveChangesAsync(ct);
+        await _notifications.NotifyConversationUpdated(conversation.TenantId, conversation.Id);
         return true;
     }
 }

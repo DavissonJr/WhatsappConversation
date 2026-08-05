@@ -30,6 +30,7 @@ builder.Services.AddHttpClient<IAiAgentService, ClaudeAiAgentService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IWebhookUrlBuilder, WebhookUrlBuilder>();
+builder.Services.AddScoped<INotificationService, WhatsappCrmIA.Api.Services.SignalRNotificationService>();
 
 // ---- Jobs agendados (lembretes) ----
 builder.Services.AddHangfire(cfg => cfg
@@ -60,6 +61,23 @@ builder.Services
             ValidAudience = builder.Configuration["Jwt:Audience"],
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2)
+        };
+
+        // O cliente JS do SignalR não consegue mandar header Authorization no handshake
+        // do WebSocket, então ele manda o token via query string — aqui a gente aceita isso
+        // só para as chamadas do hub, sem abrir brecha para o resto da API.
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 builder.Services.AddAuthorization();
@@ -139,5 +157,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseHangfireDashboard("/jobs"); // proteger com auth em produção
 app.MapControllers();
+app.MapHub<WhatsappCrmIA.Api.Hubs.ConversationHub>("/hubs/conversations");
 
 app.Run();

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using WhatsappCrmIA.Application.Interfaces;
 using WhatsappCrmIA.Domain.Entities;
 using WhatsappCrmIA.Domain.Enums;
@@ -28,30 +29,50 @@ public class ProcessIncomingMessageHandler
     private readonly IApplicationDbContext _db;
     private readonly IAiAgentService _aiAgent;
     private readonly IWhatsAppGateway _whatsApp;
+    private readonly ILogger<ProcessIncomingMessageHandler> _logger;
+    private readonly INotificationService _notifications;
 
     public ProcessIncomingMessageHandler(
         IApplicationDbContext db,
         IAiAgentService aiAgent,
-        IWhatsAppGateway whatsApp)
+        IWhatsAppGateway whatsApp,
+        ILogger<ProcessIncomingMessageHandler> logger,
+        INotificationService notifications)
     {
         _db = db;
         _aiAgent = aiAgent;
         _whatsApp = whatsApp;
+        _logger = logger;
+        _notifications = notifications;
     }
 
     public async Task<ProcessIncomingMessageResult> Handle(
         ProcessIncomingMessageCommand request, CancellationToken ct)
     {
         // 0. Resolve qual número da empresa recebeu essa mensagem
+        // IMPORTANTE: IgnoreQueryFilters() é necessário aqui porque o webhook não tem
+        // usuário autenticado (não existe JWT nessa chamada). O filtro automático de
+        // tenant (que normalmente isola os dados por usuário logado) ficaria comparando
+        // com "null" e zeraria qualquer resultado. O TenantId já vem validado pela
+        // própria URL do webhook (que só nós configuramos), então isso é seguro aqui.
         var whatsappConnection = await _db.WhatsAppConnections
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(w => w.TenantId == request.TenantId
                                        && w.InstanceName == request.InstanceName, ct);
 
         if (whatsappConnection is null)
+        {
+            _logger.LogWarning(
+                "Mensagem descartada: nenhuma WhatsAppConnection encontrada para tenant={TenantId} instance={InstanceName}. " +
+                "Isso normalmente significa que o número foi deletado/recriado e o webhook antigo ainda está configurado, " +
+                "ou que o instanceName no banco não bate com o da URL do webhook.",
+                request.TenantId, request.InstanceName);
             return new ProcessIncomingMessageResult(false, null);
+        }
 
         // 1. Garante o contato
         var contact = await _db.Contacts
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.TenantId == request.TenantId
                                        && c.PhoneNumber == request.FromPhoneNumber, ct);
 
@@ -68,6 +89,7 @@ public class ProcessIncomingMessageHandler
 
         // 2. Garante a conversa aberta (ligada a esse contato E a esse número específico)
         var conversation = await _db.Conversations
+            .IgnoreQueryFilters()
             .Include(c => c.Messages)
             .Where(c => c.ContactId == contact.Id
                         && c.WhatsAppConnectionId == whatsappConnection.Id
@@ -102,11 +124,16 @@ public class ProcessIncomingMessageHandler
 
         // 4. Busca config do agente de IA do tenant
         var agentConfig = await _db.AiAgentConfigs
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.TenantId == request.TenantId, ct);
 
         if (agentConfig is null || !agentConfig.AutoReplyEnabled)
         {
             await _db.SaveChangesAsync(ct);
+            _logger.LogInformation(
+                "Mensagem recebida salva (sem auto-resposta: {Motivo}). Conversa={ConversationId}",
+                agentConfig is null ? "sem AiAgentConfig" : "AutoReplyEnabled=false", conversation.Id);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, null);
         }
 
@@ -119,7 +146,25 @@ public class ProcessIncomingMessageHandler
             .ToList();
         history.Add(("user", request.MessageText));
 
-        var aiResult = await _aiAgent.GenerateReplyAsync(agentConfig.SystemPrompt, history, ct);
+        AiReplyResult aiResult;
+        try
+        {
+            aiResult = await _aiAgent.GenerateReplyAsync(agentConfig.SystemPrompt, history, ct);
+        }
+        catch (Exception ex)
+        {
+            // Se a IA falhar (ex: chave da Anthropic inválida/não configurada), a mensagem
+            // AINDA PRECISA ser salva — só não vai ter resposta automática dessa vez.
+            _logger.LogError(ex,
+                "Falha ao chamar a IA para gerar resposta. A mensagem será salva mesmo assim, sem auto-resposta. Conversa={ConversationId}",
+                conversation.Id);
+
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, null);
+        }
+
         conversation.LastDetectedIntent = aiResult.DetectedIntent;
 
         // 6. Se precisa de aprovação humana, apenas registra sugestão e para por aqui.
@@ -128,12 +173,29 @@ public class ProcessIncomingMessageHandler
         {
             conversation.Status = ConversationStatus.WaitingHuman;
             await _db.SaveChangesAsync(ct);
+            _logger.LogInformation(
+                "Mensagem recebida salva, aguardando aprovação humana. Conversa={ConversationId}", conversation.Id);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, aiResult.ReplyText);
         }
 
         // 7. Envia a resposta automaticamente
-        await _whatsApp.SendTextMessageAsync(
-            whatsappConnection.InstanceName, request.FromPhoneNumber, aiResult.ReplyText, ct);
+        try
+        {
+            await _whatsApp.SendTextMessageAsync(
+                whatsappConnection.InstanceName, request.FromPhoneNumber, aiResult.ReplyText, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Falha ao enviar a resposta automática pelo WhatsApp. A mensagem recebida será salva mesmo assim. Conversa={ConversationId}",
+                conversation.Id);
+
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, aiResult.ReplyText);
+        }
 
         _db.Messages.Add(new Message
         {
@@ -146,6 +208,7 @@ public class ProcessIncomingMessageHandler
         });
 
         await _db.SaveChangesAsync(ct);
+        await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
         return new ProcessIncomingMessageResult(true, aiResult.ReplyText);
     }
 }

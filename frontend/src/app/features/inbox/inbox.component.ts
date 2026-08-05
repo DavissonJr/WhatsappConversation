@@ -6,12 +6,15 @@ import { ConversationService } from '../../core/services/conversation.service';
 import { WhatsAppConnectionService } from '../../core/services/whatsapp-connection.service';
 import { MessageTemplateService } from '../../core/services/message-template.service';
 import { ToastService } from '../../core/services/toast.service';
+import { RealtimeService } from '../../core/services/realtime.service';
 import { Conversation, ConversationSummary } from '../../core/models/conversation.model';
 import { WhatsAppConnection } from '../../core/models/whatsapp-connection.model';
 import { MessageTemplate, SCOPE_LABELS } from '../../core/models/message-template.model';
 import { PhoneMaskDirective } from '../../shared/phone-mask.directive';
 
-const POLL_INTERVAL_MS = 4000;
+// Fallback: se o SignalR cair por algum motivo, o polling garante que a tela
+// não fica desatualizada por muito tempo (a atualização "de verdade" vem do hub).
+const POLL_FALLBACK_INTERVAL_MS = 15000;
 
 @Component({
   selector: 'app-inbox',
@@ -25,7 +28,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   private connectionService = inject(WhatsAppConnectionService);
   private templateService = inject(MessageTemplateService);
   private toast = inject(ToastService);
+  private realtime = inject(RealtimeService);
   private pollSubscription?: Subscription;
+  private realtimeSubscription?: Subscription;
   private lastKnownMessageTimes = new Map<string, string>();
 
   conversations = signal<ConversationSummary[]>([]);
@@ -55,13 +60,37 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
     this.templateService.getAll().subscribe((data) => this.templates.set(data.filter((t) => t.isActive)));
 
-    // Atualização automática: como ainda não temos SignalR/tempo real,
-    // verificamos periodicamente se chegou mensagem nova.
-    this.pollSubscription = interval(POLL_INTERVAL_MS).subscribe(() => this.pollForUpdates());
+    // Caminho principal: o backend avisa via SignalR assim que algo muda.
+    this.realtimeSubscription = this.realtime.conversationUpdated$.subscribe((conversationId) => {
+      this.handleConversationUpdated(conversationId);
+    });
+
+    // Caminho de segurança: caso o SignalR não conecte por algum motivo de rede.
+    this.pollSubscription = interval(POLL_FALLBACK_INTERVAL_MS).subscribe(() => this.pollForUpdates());
   }
 
   ngOnDestroy(): void {
     this.pollSubscription?.unsubscribe();
+    this.realtimeSubscription?.unsubscribe();
+  }
+
+  private handleConversationUpdated(conversationId: string): void {
+    // Sempre atualiza a lista (pra mostrar preview/ordem novos).
+    this.conversationService.getAll().subscribe({
+      next: (data) => {
+        this.notifyNewMessages(data, this.selectedConversation()?.id);
+        this.conversations.set(data);
+      },
+      error: () => {},
+    });
+
+    // Se a conversa que mudou é a que está aberta, atualiza ela também.
+    if (this.selectedConversation()?.id === conversationId) {
+      this.conversationService.getById(conversationId).subscribe({
+        next: (full) => this.selectedConversation.set(full),
+        error: () => {},
+      });
+    }
   }
 
   private pollForUpdates(): void {

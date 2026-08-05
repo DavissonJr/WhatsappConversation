@@ -115,6 +115,25 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Middleware global: qualquer exceção não tratada em qualquer endpoint vira uma
+// resposta JSON limpa, em vez de vazar stack trace para o cliente.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        var message = app.Environment.IsDevelopment()
+            ? ex.Message
+            : "Ocorreu um erro inesperado. Tente novamente em instantes.";
+        await context.Response.WriteAsJsonAsync(new { message });
+    }
+});
+
 app.UseCors("AllowAngular");
 app.UseAuthentication();
 app.UseAuthorization();

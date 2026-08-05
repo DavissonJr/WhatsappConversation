@@ -3,6 +3,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { MessageTemplateService } from '../../core/services/message-template.service';
+import { ToastService } from '../../core/services/toast.service';
 import { MessageTemplate, SCOPE_LABELS, TemplateScope } from '../../core/models/message-template.model';
 
 @Component({
@@ -14,6 +15,7 @@ import { MessageTemplate, SCOPE_LABELS, TemplateScope } from '../../core/models/
 })
 export class MessageTemplatesComponent implements OnInit {
   private service = inject(MessageTemplateService);
+  private toast = inject(ToastService);
 
   templates = signal<MessageTemplate[]>([]);
   scopeLabels = SCOPE_LABELS;
@@ -31,7 +33,10 @@ export class MessageTemplatesComponent implements OnInit {
   }
 
   load(): void {
-    this.service.getAll().subscribe((data) => this.templates.set(data));
+    this.service.getAll().subscribe({
+      next: (data) => this.templates.set(data),
+      error: () => this.toast.error('Não foi possível carregar os modelos.'),
+    });
   }
 
   openCreateForm(): void {
@@ -55,7 +60,10 @@ export class MessageTemplatesComponent implements OnInit {
   }
 
   save(): void {
-    if (!this.formName().trim() || !this.formContent().trim()) return;
+    if (!this.formName().trim() || !this.formContent().trim()) {
+      this.toast.error('Preencha o nome e o conteúdo do modelo.');
+      return;
+    }
 
     this.saving.set(true);
     const payload = { name: this.formName(), scope: this.formScope(), content: this.formContent() };
@@ -69,14 +77,24 @@ export class MessageTemplatesComponent implements OnInit {
       next: () => {
         this.saving.set(false);
         this.showForm.set(false);
+        this.toast.success(editingId ? 'Modelo atualizado.' : 'Modelo criado.');
         this.load();
       },
-      error: () => this.saving.set(false),
+      error: () => {
+        this.saving.set(false);
+        this.toast.error('Não foi possível salvar o modelo.');
+      },
     });
   }
 
   remove(template: MessageTemplate): void {
     if (!confirm(`Remover o modelo "${template.name}"?`)) return;
-    this.service.delete(template.id).subscribe(() => this.load());
+    this.service.delete(template.id).subscribe({
+      next: () => {
+        this.toast.success('Modelo removido.');
+        this.load();
+      },
+      error: () => this.toast.error('Não foi possível remover o modelo.'),
+    });
   }
 }

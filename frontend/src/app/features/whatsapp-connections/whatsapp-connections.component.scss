@@ -119,3 +119,29 @@
   color: var(--ink-400);
   font-size: 14px;
 }
+
+.qr-error {
+  padding: 24px 0;
+  color: #9f1239;
+  background: var(--rose-100);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.confirm-modal {
+  background: var(--paper-0);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 340px;
+  text-align: left;
+
+  h3 { font-size: 16px; margin-bottom: 6px; }
+  p { font-size: 13px; color: var(--ink-400); margin: 0 0 20px; }
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

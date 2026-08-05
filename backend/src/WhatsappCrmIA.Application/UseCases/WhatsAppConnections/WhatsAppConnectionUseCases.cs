@@ -24,10 +24,12 @@ public class GetWhatsAppConnectionsHandler
     }
 }
 
-public record CreateWhatsAppConnectionCommand(string Label) : IRequest<WhatsAppConnectionDto>;
+public record CreateWhatsAppConnectionCommand(string Label) : IRequest<CreateConnectionResult>;
+
+public record CreateConnectionResult(bool Success, WhatsAppConnectionDto? Connection, string? Error);
 
 public class CreateWhatsAppConnectionHandler
-    : IRequestHandler<CreateWhatsAppConnectionCommand, WhatsAppConnectionDto>
+    : IRequestHandler<CreateWhatsAppConnectionCommand, CreateConnectionResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
@@ -46,22 +48,58 @@ public class CreateWhatsAppConnectionHandler
         _webhookUrlBuilder = webhookUrlBuilder;
     }
 
-    public async Task<WhatsAppConnectionDto> Handle(
+    public async Task<CreateConnectionResult> Handle(
         CreateWhatsAppConnectionCommand request, CancellationToken ct)
     {
         if (_currentTenant.TenantId is not { } tenantId)
-            throw new InvalidOperationException("Tenant não identificado.");
+            return new CreateConnectionResult(false, null, "Tenant não identificado.");
+
+        if (string.IsNullOrWhiteSpace(request.Label))
+            return new CreateConnectionResult(false, null, "Dê um nome para o número (ex: Recepção).");
 
         // Nome de instância único e legível: tenant + label + sufixo curto.
-        var slug = request.Label.ToLowerInvariant().Replace(" ", "-");
-        var instanceName = $"{tenantId:N}-{slug}"[..Math.Min(40, $"{tenantId:N}-{slug}".Length)];
+        var slug = request.Label.Trim().ToLowerInvariant()
+            .Normalize(System.Text.NormalizationForm.FormD);
+        slug = new string(slug.Where(c =>
+            System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) !=
+            System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, "[^a-z0-9]+", "-").Trim('-');
+        if (string.IsNullOrWhiteSpace(slug)) slug = "numero";
 
-        await _whatsApp.CreateInstanceAsync(instanceName, ct);
+        var instanceName = $"{tenantId:N}-{slug}";
+        if (instanceName.Length > 60) instanceName = instanceName[..60];
 
-        // Já deixa o webhook configurado, para que mensagens recebidas cheguem
-        // automaticamente na nossa API sem passo manual nenhum.
-        var webhookUrl = _webhookUrlBuilder.Build(tenantId, instanceName);
-        await _whatsApp.SetWebhookAsync(instanceName, webhookUrl, ct);
+        var alreadyExists = await _db.WhatsAppConnections
+            .AnyAsync(c => c.InstanceName == instanceName, ct);
+        if (alreadyExists)
+            return new CreateConnectionResult(false, null,
+                "Já existe um número com um nome muito parecido. Tente um nome diferente.");
+
+        try
+        {
+            await _whatsApp.CreateInstanceAsync(instanceName, ct);
+        }
+        catch (EvolutionApiException ex)
+        {
+            return new CreateConnectionResult(false, null,
+                $"Não foi possível criar a conexão no WhatsApp ({ex.Message})");
+        }
+
+        try
+        {
+            // Já deixa o webhook configurado, para que mensagens recebidas cheguem
+            // automaticamente na nossa API sem passo manual nenhum.
+            var webhookUrl = _webhookUrlBuilder.Build(tenantId, instanceName);
+            await _whatsApp.SetWebhookAsync(instanceName, webhookUrl, ct);
+        }
+        catch (EvolutionApiException ex)
+        {
+            // Desfaz a instância criada para não deixar lixo órfão na Evolution API.
+            try { await _whatsApp.DeleteInstanceAsync(instanceName, ct); } catch { /* ignora */ }
+
+            return new CreateConnectionResult(false, null,
+                $"O número foi criado, mas não conseguimos configurar o recebimento de mensagens ({ex.Message}). Tente novamente.");
+        }
 
         var connection = new WhatsAppConnection
         {
@@ -72,14 +110,17 @@ public class CreateWhatsAppConnectionHandler
         _db.WhatsAppConnections.Add(connection);
         await _db.SaveChangesAsync(ct);
 
-        return new WhatsAppConnectionDto(
+        var dto = new WhatsAppConnectionDto(
             connection.Id, connection.Label, connection.InstanceName, connection.PhoneNumber, connection.IsConnected);
+        return new CreateConnectionResult(true, dto, null);
     }
 }
 
-public record GetQrCodeQuery(Guid ConnectionId) : IRequest<string?>;
+public record GetQrCodeQuery(Guid ConnectionId) : IRequest<QrCodeResult>;
 
-public class GetQrCodeHandler : IRequestHandler<GetQrCodeQuery, string?>
+public record QrCodeResult(bool Success, string? QrCodeBase64, string? Error);
+
+public class GetQrCodeHandler : IRequestHandler<GetQrCodeQuery, QrCodeResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
@@ -90,15 +131,22 @@ public class GetQrCodeHandler : IRequestHandler<GetQrCodeQuery, string?>
         _whatsApp = whatsApp;
     }
 
-    public async Task<string?> Handle(GetQrCodeQuery request, CancellationToken ct)
+    public async Task<QrCodeResult> Handle(GetQrCodeQuery request, CancellationToken ct)
     {
         var connection = await _db.WhatsAppConnections.FirstOrDefaultAsync(c => c.Id == request.ConnectionId, ct);
-        if (connection is null) return null;
+        if (connection is null) return new QrCodeResult(false, null, "Número não encontrado.");
 
-        var qr = await _whatsApp.GetQrCodeAsync(connection.InstanceName, ct);
-        connection.QrCodeBase64 = qr;
-        await _db.SaveChangesAsync(ct);
-        return qr;
+        try
+        {
+            var qr = await _whatsApp.GetQrCodeAsync(connection.InstanceName, ct);
+            connection.QrCodeBase64 = qr;
+            await _db.SaveChangesAsync(ct);
+            return new QrCodeResult(true, qr, null);
+        }
+        catch (EvolutionApiException ex)
+        {
+            return new QrCodeResult(false, null, $"Não foi possível gerar o QR code ({ex.Message})");
+        }
     }
 }
 
@@ -130,9 +178,11 @@ public class RefreshConnectionStatusHandler : IRequestHandler<RefreshConnectionS
     }
 }
 
-public record DisconnectWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<bool>;
+public record DisconnectWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<DisconnectResult>;
 
-public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWhatsAppConnectionCommand, bool>
+public record DisconnectResult(bool Success, string? Error);
+
+public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWhatsAppConnectionCommand, DisconnectResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
@@ -143,12 +193,19 @@ public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWha
         _whatsApp = whatsApp;
     }
 
-    public async Task<bool> Handle(DisconnectWhatsAppConnectionCommand request, CancellationToken ct)
+    public async Task<DisconnectResult> Handle(DisconnectWhatsAppConnectionCommand request, CancellationToken ct)
     {
         var connection = await _db.WhatsAppConnections.FirstOrDefaultAsync(c => c.Id == request.ConnectionId, ct);
-        if (connection is null) return false;
+        if (connection is null) return new DisconnectResult(false, "Número não encontrado.");
 
-        await _whatsApp.LogoutAsync(connection.InstanceName, ct);
+        try
+        {
+            await _whatsApp.LogoutAsync(connection.InstanceName, ct);
+        }
+        catch (EvolutionApiException ex)
+        {
+            return new DisconnectResult(false, $"Não foi possível desconectar ({ex.Message})");
+        }
 
         connection.IsConnected = false;
         connection.PhoneNumber = null;
@@ -156,7 +213,7 @@ public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWha
         connection.QrCodeBase64 = null;
 
         await _db.SaveChangesAsync(ct);
-        return true;
+        return new DisconnectResult(true, null);
     }
 }
 

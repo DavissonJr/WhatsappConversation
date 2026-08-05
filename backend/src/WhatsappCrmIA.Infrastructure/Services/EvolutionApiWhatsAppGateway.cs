@@ -31,14 +31,14 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
         };
 
         var response = await _http.PostAsJsonAsync("/instance/create", payload, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
         return await response.Content.ReadAsStringAsync(ct);
     }
 
     public async Task<string> GetQrCodeAsync(string instanceName, CancellationToken ct = default)
     {
         var response = await _http.GetAsync($"/instance/connect/{instanceName}", ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
 
         var result = await response.Content.ReadFromJsonAsync<QrCodeResponse>(cancellationToken: ct);
         return result?.Base64 ?? string.Empty;
@@ -63,7 +63,7 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
         };
 
         var response = await _http.PostAsJsonAsync($"/message/sendText/{instanceName}", payload, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
     }
 
     public async Task SetWebhookAsync(string instanceName, string webhookUrl, CancellationToken ct = default)
@@ -80,13 +80,13 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
         };
 
         var response = await _http.PostAsJsonAsync($"/webhook/set/{instanceName}", payload, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
     }
 
     public async Task LogoutAsync(string instanceName, CancellationToken ct = default)
     {
         var response = await _http.DeleteAsync($"/instance/logout/{instanceName}", ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
     }
 
     public async Task DeleteInstanceAsync(string instanceName, CancellationToken ct = default)
@@ -94,7 +94,19 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
         var response = await _http.DeleteAsync($"/instance/delete/{instanceName}", ct);
         // Se a instância já não existir (ex: nunca chegou a conectar), não é um erro real.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
-            response.EnsureSuccessStatusCode();
+            await EnsureSuccessOrThrowAsync(response, ct);
+    }
+
+    /// <summary>
+    /// Em vez de EnsureSuccessStatusCode() (que descarta o corpo da resposta),
+    /// lê o corpo e lança uma exceção com o motivo real que a Evolution API deu.
+    /// </summary>
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode) return;
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        throw new EvolutionApiException((int)response.StatusCode, body);
     }
 
     private class QrCodeResponse

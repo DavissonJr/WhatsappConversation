@@ -17,10 +17,6 @@
     </button>
   </div>
 
-  @if (errorMessage()) {
-    <div class="error-banner">{{ errorMessage() }}</div>
-  }
-
   <div class="connections-grid">
     @for (conn of connections(); track conn.id) {
       <div class="connection-card">
@@ -38,12 +34,12 @@
           @if (!conn.isConnected) {
             <button class="btn-secondary" (click)="showQrCode(conn)">Ver QR Code</button>
           } @else {
-            <button class="btn-danger" (click)="disconnect(conn)">Desconectar</button>
+            <button class="btn-danger" (click)="askDisconnect(conn)">Desconectar</button>
           }
           <button class="btn-ghost" (click)="checkStatus(conn)">Atualizar status</button>
         </div>
 
-        <button class="remove-link" (click)="delete(conn)" [disabled]="deleting() === conn.id">
+        <button class="remove-link" (click)="askDelete(conn)" [disabled]="deleting() === conn.id">
           {{ deleting() === conn.id ? 'Removendo...' : 'Remover número' }}
         </button>
       </div>
@@ -60,11 +56,39 @@
 
         @if (loadingQr()) {
           <div class="qr-loading">Gerando QR Code...</div>
+        } @else if (qrError()) {
+          <div class="qr-error">{{ qrError() }}</div>
         } @else if (qrCodeBase64()) {
           <img [src]="qrCodeBase64()" alt="QR Code do WhatsApp" class="qr-image" />
         }
 
         <button class="btn-ghost" (click)="closeQrCode()">Fechar</button>
+      </div>
+    </div>
+  }
+
+  @if (confirmDisconnectFor(); as conn) {
+    <div class="qr-modal-backdrop" (click)="cancelDisconnect()">
+      <div class="confirm-modal" (click)="$event.stopPropagation()">
+        <h3>Desconectar "{{ conn.label }}"?</h3>
+        <p>Você poderá reconectar depois escaneando um novo QR code.</p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" (click)="cancelDisconnect()">Cancelar</button>
+          <button class="btn-danger" (click)="confirmDisconnect()">Desconectar</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (confirmDeleteFor(); as conn) {
+    <div class="qr-modal-backdrop" (click)="cancelDelete()">
+      <div class="confirm-modal" (click)="$event.stopPropagation()">
+        <h3>Remover "{{ conn.label }}"?</h3>
+        <p>Essa ação não pode ser desfeita.</p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" (click)="cancelDelete()">Cancelar</button>
+          <button class="btn-danger" (click)="confirmDelete()">Remover</button>
+        </div>
       </div>
     </div>
   }

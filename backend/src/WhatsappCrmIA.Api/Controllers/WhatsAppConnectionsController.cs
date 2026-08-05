@@ -21,15 +21,17 @@ public class WhatsAppConnectionsController : ControllerBase
         => Ok(await _mediator.Send(new GetWhatsAppConnectionsQuery(), ct));
 
     [HttpPost]
-    public async Task<ActionResult<WhatsAppConnectionDto>> Create(
-        [FromBody] CreateConnectionRequest request, CancellationToken ct)
-        => Ok(await _mediator.Send(new CreateWhatsAppConnectionCommand(request.Label), ct));
+    public async Task<IActionResult> Create([FromBody] CreateConnectionRequest request, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new CreateWhatsAppConnectionCommand(request.Label), ct);
+        return result.Success ? Ok(result.Connection) : BadRequest(new { message = result.Error });
+    }
 
     [HttpGet("{id:guid}/qrcode")]
     public async Task<IActionResult> GetQrCode(Guid id, CancellationToken ct)
     {
-        var qr = await _mediator.Send(new GetQrCodeQuery(id), ct);
-        return qr is null ? NotFound() : Ok(new { qrCodeBase64 = qr });
+        var result = await _mediator.Send(new GetQrCodeQuery(id), ct);
+        return result.Success ? Ok(new { qrCodeBase64 = result.QrCodeBase64 }) : BadRequest(new { message = result.Error });
     }
 
     [HttpPost("{id:guid}/refresh-status")]
@@ -42,8 +44,8 @@ public class WhatsAppConnectionsController : ControllerBase
     [HttpPost("{id:guid}/disconnect")]
     public async Task<IActionResult> Disconnect(Guid id, CancellationToken ct)
     {
-        var success = await _mediator.Send(new DisconnectWhatsAppConnectionCommand(id), ct);
-        return success ? Ok() : NotFound();
+        var result = await _mediator.Send(new DisconnectWhatsAppConnectionCommand(id), ct);
+        return result.Success ? Ok() : BadRequest(new { message = result.Error });
     }
 
     [HttpDelete("{id:guid}")]

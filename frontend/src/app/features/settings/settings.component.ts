@@ -74,11 +74,8 @@ export class SettingsComponent implements OnInit {
   inviting = signal(false);
   teamMessage = signal<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Créditos de IA
+  // Créditos de IA (só leitura)
   aiUsage = signal<AiUsageSummary | null>(null);
-  topUpAmount = signal(5);
-  addingCredits = signal(false);
-  creditsMessage = signal<{ type: 'success' | 'error'; text: string } | null>(null);
 
   ngOnInit(): void {
     this.loadProfile();
@@ -310,23 +307,5 @@ export class SettingsComponent implements OnInit {
   // ---- Créditos de IA ----
   loadAiUsage(): void {
     this.service.getAiUsage().subscribe((data) => this.aiUsage.set(data));
-  }
-
-  addCredits(): void {
-    if (this.topUpAmount() <= 0) return;
-
-    this.addingCredits.set(true);
-    this.creditsMessage.set(null);
-    this.service.addAiCredits(this.topUpAmount()).subscribe({
-      next: () => {
-        this.addingCredits.set(false);
-        this.creditsMessage.set({ type: 'success', text: 'Créditos adicionados.' });
-        this.loadAiUsage();
-      },
-      error: () => {
-        this.addingCredits.set(false);
-        this.creditsMessage.set({ type: 'error', text: 'Não foi possível adicionar créditos.' });
-      },
-    });
   }
 }

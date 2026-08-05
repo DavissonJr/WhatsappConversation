@@ -15,14 +15,6 @@ public class Tenant
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// Saldo de créditos (em USD) disponível para chamadas de IA. Cada resposta
-    /// gerada consome uma fração desse saldo, calculada pelo uso real de tokens.
-    /// Quando chega a zero, a IA para de responder automaticamente (a conversa
-    /// só fica esperando um atendente humano — nada quebra).
-    /// </summary>
-    public decimal AiCreditsBalanceUsd { get; set; } = 5.00m;
-
     // Config do agente de IA para este tenant
     public AiAgentConfig? AiAgentConfig { get; set; }
 

@@ -31,8 +31,9 @@ export interface AiUsageLog {
 }
 
 export interface AiUsageSummary {
-  balanceUsd: number;
-  totalSpentUsd: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  estimatedTotalCostUsd: number;
   recentUsage: AiUsageLog[];
 }
 

@@ -53,11 +53,8 @@ export class SettingsService {
     return this.http.put<void>(`${this.base}/api/team/${id}/active`, { isActive });
   }
 
-  // Créditos de IA
+  // Créditos de IA (só leitura — relatório de uso, sem controle de saldo)
   getAiUsage(): Observable<AiUsageSummary> {
     return this.http.get<AiUsageSummary>(`${this.base}/api/ai-usage`);
-  }
-  addAiCredits(amountUsd: number): Observable<void> {
-    return this.http.post<void>(`${this.base}/api/ai-usage/add-credits`, { amountUsd });
   }
 }

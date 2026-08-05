@@ -20,11 +20,10 @@ public class GetAiUsageHandler : IRequestHandler<GetAiUsageQuery, AiUsageSummary
 
     public async Task<AiUsageSummaryDto?> Handle(GetAiUsageQuery request, CancellationToken ct)
     {
-        if (_currentTenant.TenantId is not { } tenantId) return null;
+        if (_currentTenant.TenantId is null) return null;
 
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-        if (tenant is null) return null;
-
+        var totalInputTokens = await _db.AiUsageLogs.SumAsync(u => (int?)u.InputTokens, ct) ?? 0;
+        var totalOutputTokens = await _db.AiUsageLogs.SumAsync(u => (int?)u.OutputTokens, ct) ?? 0;
         var totalSpent = await _db.AiUsageLogs.SumAsync(u => (decimal?)u.CostUsd, ct) ?? 0m;
 
         var recent = await _db.AiUsageLogs
@@ -33,32 +32,6 @@ public class GetAiUsageHandler : IRequestHandler<GetAiUsageQuery, AiUsageSummary
             .Select(u => new AiUsageLogDto(u.CreatedAtUtc, u.InputTokens, u.OutputTokens, u.CostUsd))
             .ToListAsync(ct);
 
-        return new AiUsageSummaryDto(tenant.AiCreditsBalanceUsd, totalSpent, recent);
-    }
-}
-
-public record AddAiCreditsCommand(decimal AmountUsd) : IRequest<bool>;
-
-public class AddAiCreditsHandler : IRequestHandler<AddAiCreditsCommand, bool>
-{
-    private readonly IApplicationDbContext _db;
-    private readonly ICurrentTenantService _currentTenant;
-
-    public AddAiCreditsHandler(IApplicationDbContext db, ICurrentTenantService currentTenant)
-    {
-        _db = db;
-        _currentTenant = currentTenant;
-    }
-
-    public async Task<bool> Handle(AddAiCreditsCommand request, CancellationToken ct)
-    {
-        if (_currentTenant.TenantId is not { } tenantId || request.AmountUsd <= 0) return false;
-
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
-        if (tenant is null) return false;
-
-        tenant.AiCreditsBalanceUsd += request.AmountUsd;
-        await _db.SaveChangesAsync(ct);
-        return true;
+        return new AiUsageSummaryDto(totalInputTokens, totalOutputTokens, totalSpent, recent);
     }
 }

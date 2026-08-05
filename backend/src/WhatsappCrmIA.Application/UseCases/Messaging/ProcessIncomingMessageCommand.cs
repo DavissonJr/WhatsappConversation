@@ -181,22 +181,6 @@ public class ProcessIncomingMessageHandler
             return new ProcessIncomingMessageResult(false, null);
         }
 
-        // 4.6 Limite de gasto auto-imposto pelo próprio tenant (opcional, é só
-        // um teto de segurança pra ele não ser surpreendido pela fatura da
-        // Anthropic — o dinheiro já é da conta dele, isso aqui não te protege,
-        // protege ELE).
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == request.TenantId, ct);
-        if (tenant is null || tenant.AiCreditsBalanceUsd <= 0m)
-        {
-            conversation.Status = ConversationStatus.WaitingHuman;
-            await _db.SaveChangesAsync(ct);
-            _logger.LogWarning(
-                "Mensagem recebida salva, mas o limite de gasto de IA do tenant chegou a zero (saldo={Saldo}). Conversa={ConversationId}",
-                tenant?.AiCreditsBalanceUsd, conversation.Id);
-            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
-            return new ProcessIncomingMessageResult(false, null);
-        }
-
         var anthropicApiKey = _secretProtector.Decrypt(agentConfig.AnthropicApiKeyEncrypted);
 
         // 5. Monta histórico e chama a IA (Claude)
@@ -229,11 +213,11 @@ public class ProcessIncomingMessageHandler
 
         conversation.LastDetectedIntent = aiResult.DetectedIntent;
 
-        // Desconta o custo real (baseado nos tokens usados) do saldo do tenant,
-        // e registra o consumo para o histórico/auditoria.
+        // Registra o consumo (tokens + custo estimado) para o tenant conseguir
+        // acompanhar quanto está gastando através do app — isso é só leitura/
+        // relatório, não é um saldo que a gente controla ou desconta.
         var costUsd = (aiResult.InputTokens / 1_000_000m) * InputCostPerMillionTokens
                      + (aiResult.OutputTokens / 1_000_000m) * OutputCostPerMillionTokens;
-        tenant.AiCreditsBalanceUsd = Math.Max(0, tenant.AiCreditsBalanceUsd - costUsd);
         _db.AiUsageLogs.Add(new AiUsageLog
         {
             TenantId = request.TenantId,

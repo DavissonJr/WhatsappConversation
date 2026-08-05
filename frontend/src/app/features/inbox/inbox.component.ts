@@ -11,6 +11,7 @@ import { Conversation, ConversationSummary } from '../../core/models/conversatio
 import { WhatsAppConnection } from '../../core/models/whatsapp-connection.model';
 import { MessageTemplate, SCOPE_LABELS } from '../../core/models/message-template.model';
 import { PhoneMaskDirective } from '../../shared/phone-mask.directive';
+import { OnboardingChecklistComponent } from '../../shared/onboarding/onboarding-checklist.component';
 
 // Fallback: se o SignalR cair por algum motivo, o polling garante que a tela
 // não fica desatualizada por muito tempo (a atualização "de verdade" vem do hub).
@@ -19,7 +20,7 @@ const POLL_FALLBACK_INTERVAL_MS = 15000;
 @Component({
   selector: 'app-inbox',
   standalone: true,
-  imports: [CommonModule, FormsModule, PhoneMaskDirective],
+  imports: [CommonModule, FormsModule, PhoneMaskDirective, OnboardingChecklistComponent],
   templateUrl: './inbox.component.html',
   styleUrl: './inbox.component.scss',
 })

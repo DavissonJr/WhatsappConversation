@@ -1,7 +1,14 @@
+.inbox-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .inbox {
   display: grid;
   grid-template-columns: 320px 1fr;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .conversation-list {

@@ -1,0 +1,234 @@
+<div class="page settings-page">
+  <header class="page-header">
+    <div>
+      <h1>Configurações</h1>
+      <p>Gerencie seu perfil, sua empresa, o assistente de IA e sua equipe.</p>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button [class.active]="activeTab() === 'perfil'" (click)="setTab('perfil')">Meu perfil</button>
+    <button [class.active]="activeTab() === 'empresa'" (click)="setTab('empresa')">Empresa</button>
+    <button [class.active]="activeTab() === 'ia'" (click)="setTab('ia')">Agente de IA</button>
+    <button [class.active]="activeTab() === 'equipe'" (click)="setTab('equipe')">Equipe</button>
+  </div>
+
+  <!-- PERFIL -->
+  @if (activeTab() === 'perfil') {
+    <div class="tab-content">
+      <section class="settings-card">
+        <h2>Dados pessoais</h2>
+
+        @if (profileMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        <div class="field">
+          <label>Nome completo</label>
+          <input type="text" [(ngModel)]="profileFullName" />
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <input type="email" [(ngModel)]="profileEmail" />
+        </div>
+        <button class="btn-primary" (click)="saveProfile()" [disabled]="savingProfile()">
+          {{ savingProfile() ? 'Salvando...' : 'Salvar alterações' }}
+        </button>
+      </section>
+
+      <section class="settings-card">
+        <h2>Trocar senha</h2>
+
+        @if (passwordMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        <div class="field">
+          <label>Senha atual</label>
+          <input type="password" [(ngModel)]="currentPassword" />
+        </div>
+        <div class="field">
+          <label>Nova senha</label>
+          <input type="password" [(ngModel)]="newPassword" />
+        </div>
+        <div class="field">
+          <label>Confirmar nova senha</label>
+          <input type="password" [(ngModel)]="confirmPassword" />
+        </div>
+        <button class="btn-primary" (click)="savePassword()" [disabled]="changingPassword()">
+          {{ changingPassword() ? 'Alterando...' : 'Trocar senha' }}
+        </button>
+      </section>
+    </div>
+  }
+
+  <!-- EMPRESA -->
+  @if (activeTab() === 'empresa') {
+    <div class="tab-content">
+      <section class="settings-card">
+        <h2>Dados da empresa</h2>
+
+        @if (companyMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        <div class="field">
+          <label>Nome da empresa</label>
+          <input type="text" [(ngModel)]="companyName" />
+        </div>
+        <div class="field">
+          <label>Segmento</label>
+          <select [(ngModel)]="companySegment">
+            @for (opt of segments; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label>Plano atual</label>
+          <input type="text" [value]="tenant()?.plan" disabled />
+        </div>
+        <button class="btn-primary" (click)="saveCompany()" [disabled]="savingCompany()">
+          {{ savingCompany() ? 'Salvando...' : 'Salvar alterações' }}
+        </button>
+      </section>
+    </div>
+  }
+
+  <!-- AGENTE DE IA -->
+  @if (activeTab() === 'ia') {
+    <div class="tab-content">
+      <section class="settings-card">
+        <h2>Assistente virtual</h2>
+        <p class="section-subtitle">Como a IA se apresenta e se comporta ao responder seus clientes.</p>
+
+        @if (aiMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        <div class="field">
+          <label>Nome do assistente</label>
+          <input type="text" [(ngModel)]="aiAgentName" />
+        </div>
+
+        <div class="field">
+          <label>Persona / instruções (system prompt)</label>
+          <textarea rows="6" [(ngModel)]="aiSystemPrompt"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Horário de atendimento</label>
+          <input type="text" [(ngModel)]="aiBusinessHours" placeholder="08:00-18:00" />
+        </div>
+
+        <div class="field">
+          <label>Mensagem de fallback (quando não sabe responder)</label>
+          <input type="text" [(ngModel)]="aiFallbackMessage" placeholder="Já te chamo, um momento!" />
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-item">
+            <label>
+              <input type="checkbox" [(ngModel)]="aiAutoReply" />
+              Responder automaticamente
+            </label>
+            <span class="toggle-hint">Se desligado, a IA só sugere a resposta — não envia sozinha.</span>
+          </div>
+
+          <div class="toggle-item">
+            <label>
+              <input type="checkbox" [(ngModel)]="aiRequireApproval" />
+              Exigir aprovação humana antes de enviar
+            </label>
+            <span class="toggle-hint">Recomendado enquanto você ainda está calibrando o assistente.</span>
+          </div>
+        </div>
+
+        <button class="btn-primary" (click)="saveAiConfig()" [disabled]="savingAi()">
+          {{ savingAi() ? 'Salvando...' : 'Salvar configuração' }}
+        </button>
+      </section>
+    </div>
+  }
+
+  <!-- EQUIPE -->
+  @if (activeTab() === 'equipe') {
+    <div class="tab-content">
+      <section class="settings-card">
+        <div class="card-header-row">
+          <h2>Atendentes</h2>
+          <button class="btn-primary" (click)="openInviteForm()">+ Adicionar atendente</button>
+        </div>
+
+        @if (teamMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        <table class="team-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Papel</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (member of team(); track member.id) {
+              <tr>
+                <td>{{ member.fullName }}</td>
+                <td>{{ member.email }}</td>
+                <td>{{ member.role === 'Owner' ? 'Dono' : 'Atendente' }}</td>
+                <td>
+                  <span class="status-dot" [class.active]="member.isActive"></span>
+                  {{ member.isActive ? 'Ativo' : 'Inativo' }}
+                </td>
+                <td>
+                  @if (member.role !== 'Owner') {
+                    <button class="btn-ghost" (click)="toggleActive(member)">
+                      {{ member.isActive ? 'Desativar' : 'Reativar' }}
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    </div>
+  }
+</div>
+
+@if (showInviteForm()) {
+  <div class="modal-backdrop" (click)="closeInviteForm()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Adicionar atendente</h3>
+      <p class="modal-subtitle">Defina uma senha temporária e compartilhe com a pessoa por fora.</p>
+
+      @if (teamMessage(); as msg) {
+        <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+      }
+
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" [(ngModel)]="inviteFullName" />
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input type="email" [(ngModel)]="inviteEmail" />
+      </div>
+      <div class="field">
+        <label>Senha temporária</label>
+        <input type="text" [(ngModel)]="invitePassword" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="closeInviteForm()">Cancelar</button>
+        <button class="btn-primary" (click)="inviteMember()" [disabled]="inviting()">
+          {{ inviting() ? 'Adicionando...' : 'Adicionar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

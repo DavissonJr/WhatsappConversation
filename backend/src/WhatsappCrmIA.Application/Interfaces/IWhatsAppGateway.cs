@@ -22,4 +22,9 @@ public interface IWhatsAppGateway
     /// mas mantém a instância — pode reconectar escaneando um novo QR code.
     /// </summary>
     Task LogoutAsync(string instanceName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Remove a instância definitivamente da Evolution API.
+    /// </summary>
+    Task DeleteInstanceAsync(string instanceName, CancellationToken ct = default);
 }

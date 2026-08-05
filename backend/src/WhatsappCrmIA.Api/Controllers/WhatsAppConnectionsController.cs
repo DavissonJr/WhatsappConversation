@@ -45,4 +45,11 @@ public class WhatsAppConnectionsController : ControllerBase
         var success = await _mediator.Send(new DisconnectWhatsAppConnectionCommand(id), ct);
         return success ? Ok() : NotFound();
     }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var success = await _mediator.Send(new DeleteWhatsAppConnectionCommand(id), ct);
+        return success ? Ok() : NotFound();
+    }
 }

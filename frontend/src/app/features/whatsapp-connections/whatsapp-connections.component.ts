@@ -73,13 +73,37 @@ export class WhatsAppConnectionsComponent implements OnInit {
     });
   }
 
+  deleting = signal<string | null>(null);
+  errorMessage = signal<string | null>(null);
+
   disconnect(conn: WhatsAppConnection): void {
     if (!confirm(`Desconectar o número "${conn.label}"? Você poderá reconectar depois escaneando um novo QR code.`)) return;
 
-    this.service.disconnect(conn.id).subscribe(() => {
-      this.connections.update((list) =>
-        list.map((c) => (c.id === conn.id ? { ...c, isConnected: false, phoneNumber: undefined } : c)),
-      );
+    this.service.disconnect(conn.id).subscribe({
+      next: () => {
+        this.connections.update((list) =>
+          list.map((c) => (c.id === conn.id ? { ...c, isConnected: false, phoneNumber: undefined } : c)),
+        );
+      },
+      error: () => this.errorMessage.set('Não foi possível desconectar. Tente novamente.'),
+    });
+  }
+
+  delete(conn: WhatsAppConnection): void {
+    if (!confirm(`Remover o número "${conn.label}" definitivamente? Essa ação não pode ser desfeita.`)) return;
+
+    this.deleting.set(conn.id);
+    this.service.delete(conn.id).subscribe({
+      next: () => {
+        this.deleting.set(null);
+        this.connections.update((list) => list.filter((c) => c.id !== conn.id));
+      },
+      error: () => {
+        this.deleting.set(null);
+        this.errorMessage.set(
+          'Não foi possível remover esse número. Se ele já tiver conversas vinculadas, isso ainda não é suportado.',
+        );
+      },
     });
   }
 }

@@ -14,10 +14,10 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-chip">
+      <a routerLink="/configuracoes" routerLinkActive="active" class="user-chip">
         <div class="avatar">{{ (auth.currentUserName() || '?').charAt(0) }}</div>
         <span>{{ auth.currentUserName() }}</span>
-      </div>
+      </a>
       <button class="logout-btn" (click)="logout()" title="Sair">
         <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
           <path d="M6 3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h5a1 1 0 1 0 0-2H7V5h4a1 1 0 1 0 0-2H6Zm8.293 4.293a1 1 0 0 1 1.414 0L18.414 10l-2.707 2.707a1 1 0 0 1-1.414-1.414L15.586 10H9a1 1 0 1 1 0-2h6.586l-1.293-1.293a1 1 0 0 1 0-1.414Z"/>

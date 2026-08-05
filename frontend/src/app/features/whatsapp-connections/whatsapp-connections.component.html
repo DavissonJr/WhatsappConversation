@@ -17,6 +17,10 @@
     </button>
   </div>
 
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
   <div class="connections-grid">
     @for (conn of connections(); track conn.id) {
       <div class="connection-card">
@@ -38,6 +42,10 @@
           }
           <button class="btn-ghost" (click)="checkStatus(conn)">Atualizar status</button>
         </div>
+
+        <button class="remove-link" (click)="delete(conn)" [disabled]="deleting() === conn.id">
+          {{ deleting() === conn.id ? 'Removendo...' : 'Remover número' }}
+        </button>
       </div>
     } @empty {
       <p class="empty-state">Nenhum número conectado ainda. Crie o primeiro acima.</p>

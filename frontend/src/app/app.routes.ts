@@ -38,6 +38,11 @@ export const routes: Routes = [
             (m) => m.MessageTemplatesComponent,
           ),
       },
+      {
+        path: 'configuracoes',
+        loadComponent: () =>
+          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

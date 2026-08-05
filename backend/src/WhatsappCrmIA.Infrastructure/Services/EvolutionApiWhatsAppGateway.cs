@@ -68,14 +68,15 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
 
     public async Task SetWebhookAsync(string instanceName, string webhookUrl, CancellationToken ct = default)
     {
+        // Formato correto da v2: campos no nível raiz do JSON (não aninhados
+        // em "webhook" — isso é do formato antigo da v1 e causa erro 400 na v2).
         var payload = new
         {
-            webhook = new
-            {
-                url = webhookUrl,
-                enabled = true,
-                events = new[] { "MESSAGES_UPSERT" }
-            }
+            enabled = true,
+            url = webhookUrl,
+            webhookByEvents = false,
+            webhookBase64 = false,
+            events = new[] { "MESSAGES_UPSERT" }
         };
 
         var response = await _http.PostAsJsonAsync($"/webhook/set/{instanceName}", payload, ct);
@@ -86,6 +87,14 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
     {
         var response = await _http.DeleteAsync($"/instance/logout/{instanceName}", ct);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteInstanceAsync(string instanceName, CancellationToken ct = default)
+    {
+        var response = await _http.DeleteAsync($"/instance/delete/{instanceName}", ct);
+        // Se a instância já não existir (ex: nunca chegou a conectar), não é um erro real.
+        if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
+            response.EnsureSuccessStatusCode();
     }
 
     private class QrCodeResponse

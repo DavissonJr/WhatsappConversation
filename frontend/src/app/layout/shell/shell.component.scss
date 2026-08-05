@@ -63,6 +63,15 @@
     font-size: 13px;
     color: var(--ink-200);
     overflow: hidden;
+    text-decoration: none;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    flex: 1;
+    min-width: 0;
+    transition: background 0.15s ease;
+
+    &:hover { background: var(--ink-800); }
+    &.active { background: rgba(16, 185, 129, 0.15); }
 
     span {
       white-space: nowrap;

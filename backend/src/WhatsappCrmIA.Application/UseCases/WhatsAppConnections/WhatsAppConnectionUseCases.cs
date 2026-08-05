@@ -159,3 +159,38 @@ public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWha
         return true;
     }
 }
+
+public record DeleteWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<bool>;
+
+public class DeleteWhatsAppConnectionHandler : IRequestHandler<DeleteWhatsAppConnectionCommand, bool>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly IWhatsAppGateway _whatsApp;
+
+    public DeleteWhatsAppConnectionHandler(IApplicationDbContext db, IWhatsAppGateway whatsApp)
+    {
+        _db = db;
+        _whatsApp = whatsApp;
+    }
+
+    public async Task<bool> Handle(DeleteWhatsAppConnectionCommand request, CancellationToken ct)
+    {
+        var connection = await _db.WhatsAppConnections.FirstOrDefaultAsync(c => c.Id == request.ConnectionId, ct);
+        if (connection is null) return false;
+
+        // Tenta remover na Evolution API também — se falhar (ex: já não existia lá),
+        // ainda assim removemos do nosso banco para não deixar lixo na tela.
+        try
+        {
+            await _whatsApp.DeleteInstanceAsync(connection.InstanceName, ct);
+        }
+        catch
+        {
+            // segue o fluxo mesmo assim
+        }
+
+        _db.WhatsAppConnections.Remove(connection);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+}

@@ -33,16 +33,39 @@
               <span class="ai-badge">gerado por IA</span>
             }
           </div>
+        } @empty {
+          <p class="empty">Nenhuma mensagem ainda nessa conversa.</p>
         }
       </div>
 
+      @if (sendError()) {
+        <div class="error-banner">{{ sendError() }}</div>
+      }
+
+      @if (showTemplatePicker()) {
+        <div class="template-picker">
+          @for (t of templates(); track t.id) {
+            <button class="template-option" (click)="useTemplate(t)">
+              <span class="scope-tag">{{ scopeLabels[t.scope] }}</span>
+              <span class="template-name">{{ t.name }}</span>
+            </button>
+          } @empty {
+            <p class="empty-small">Nenhum modelo criado ainda. Crie um em "Modelos de mensagem".</p>
+          }
+        </div>
+      }
+
       <footer>
+        <button class="template-btn" (click)="toggleTemplatePicker()" title="Usar modelo de mensagem">📋</button>
         <input
           type="text"
           placeholder="Digite uma mensagem..."
           [(ngModel)]="draftMessage"
-          (keyup.enter)="send()" />
-        <button (click)="send()">Enviar</button>
+          (keyup.enter)="send()"
+          [disabled]="sendingMessage()" />
+        <button (click)="send()" [disabled]="sendingMessage()">
+          {{ sendingMessage() ? 'Enviando...' : 'Enviar' }}
+        </button>
       </footer>
     } @else {
       <p class="empty">Selecione uma conversa ou inicie uma nova</p>
@@ -73,8 +96,13 @@
         </div>
 
         <div class="field">
-          <label>Número do WhatsApp (com DDI e DDD, só números)</label>
-          <input type="text" [(ngModel)]="newPhoneNumber" placeholder="Ex: 5511999999999" />
+          <label>Número do WhatsApp</label>
+          <input
+            type="text"
+            appPhoneMask
+            [ngModel]="newPhoneNumber()"
+            (ngModelChange)="newPhoneNumber.set($event)"
+            placeholder="+55 (11) 99999-9999" />
         </div>
 
         <div class="field">

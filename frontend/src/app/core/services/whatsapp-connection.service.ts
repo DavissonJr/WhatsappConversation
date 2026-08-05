@@ -28,4 +28,8 @@ export class WhatsAppConnectionService {
   disconnect(id: string): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/${id}/disconnect`, {});
   }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
 }

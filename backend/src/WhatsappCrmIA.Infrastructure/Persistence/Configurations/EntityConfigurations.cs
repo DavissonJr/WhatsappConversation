@@ -85,6 +85,11 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
             .WithMany()
             .HasForeignKey(a => a.ContactId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(a => a.WhatsAppConnection)
+            .WithMany()
+            .HasForeignKey(a => a.WhatsAppConnectionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

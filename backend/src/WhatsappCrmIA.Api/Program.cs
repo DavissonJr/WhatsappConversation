@@ -43,6 +43,8 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IWebhookUrlBuilder, WebhookUrlBuilder>();
 builder.Services.AddScoped<INotificationService, WhatsappCrmIA.Api.Services.SignalRNotificationService>();
+builder.Services.AddScoped<IReminderScheduler, WhatsappCrmIA.Api.Services.HangfireReminderScheduler>();
+builder.Services.AddScoped<WhatsappCrmIA.Api.Services.SendReminderJob>();
 
 // ---- Jobs agendados (lembretes) ----
 builder.Services.AddHangfire(cfg => cfg

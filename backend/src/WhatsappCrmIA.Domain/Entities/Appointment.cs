@@ -8,6 +8,10 @@ public class Appointment : BaseEntity
     public Guid ContactId { get; set; }
     public Contact Contact { get; set; } = default!;
 
+    // De qual número da empresa o lembrete deve ser enviado
+    public Guid WhatsAppConnectionId { get; set; }
+    public WhatsAppConnection WhatsAppConnection { get; set; } = default!;
+
     public string Title { get; set; } = default!;
     public DateTime ScheduledForUtc { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;

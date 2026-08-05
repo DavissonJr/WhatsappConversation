@@ -1,0 +1,166 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Agendamentos</h1>
+      <p>Marque retornos e a IA lembra o cliente sozinha na hora certa.</p>
+    </div>
+    <button class="btn-primary" (click)="openForm()">+ Novo agendamento</button>
+  </header>
+
+  <div class="appointments-list">
+    @for (appt of appointments(); track appt.id) {
+      <div class="appointment-card" [class.past]="isPast(appt.scheduledForUtc) && appt.status === 'Scheduled'">
+        <div class="appt-main">
+          <div class="appt-datetime">
+            <span class="appt-date">{{ appt.scheduledForUtc | date: 'dd/MM' }}</span>
+            <span class="appt-time">{{ appt.scheduledForUtc | date: 'HH:mm' }}</span>
+          </div>
+          <div class="appt-info">
+            <strong>{{ appt.title }}</strong>
+            <span class="appt-contact">{{ appt.contact.name || appt.contact.phoneNumber }} · via {{ appt.whatsAppConnectionLabel }}</span>
+            @if (appt.notes) {
+              <span class="appt-notes">{{ appt.notes }}</span>
+            }
+          </div>
+          <span class="status-badge" [attr.data-status]="appt.status">{{ statusLabels[appt.status] }}</span>
+        </div>
+
+        @if (appt.reminders.length > 0) {
+          <div class="appt-reminders">
+            @for (r of appt.reminders; track r.id) {
+              <span class="reminder-chip" [attr.data-status]="r.status">
+                🔔 {{ r.sendAtUtc | date: 'dd/MM HH:mm' }} — {{ r.status }}
+              </span>
+            }
+          </div>
+        }
+
+        @if (appt.status === 'Scheduled' || appt.status === 'Confirmed') {
+          <div class="appt-actions">
+            <button class="btn-ghost" (click)="markCompleted(appt)">Marcar concluído</button>
+            <button class="btn-ghost" (click)="cancelAppointment(appt)">Cancelar</button>
+            <button class="btn-ghost danger" (click)="askDelete(appt)">Remover</button>
+          </div>
+        } @else {
+          <div class="appt-actions">
+            <button class="btn-ghost danger" (click)="askDelete(appt)">Remover</button>
+          </div>
+        }
+      </div>
+    } @empty {
+      <p class="empty-state">Nenhum agendamento ainda. Clique em "+ Novo agendamento" pra criar o primeiro.</p>
+    }
+  </div>
+</div>
+
+@if (showForm()) {
+  <div class="modal-backdrop" (click)="closeForm()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Novo agendamento</h3>
+
+      @if (connections().length === 0) {
+        <p class="empty-state">Você precisa conectar um número de WhatsApp antes. Vá em "Números WhatsApp".</p>
+      } @else {
+        <div class="field">
+          <label>Enviar lembretes a partir de</label>
+          <select [(ngModel)]="formConnectionId">
+            @for (c of connections(); track c.id) {
+              <option [value]="c.id">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Número do cliente</label>
+          <input
+            type="text"
+            appPhoneMask
+            [ngModel]="formPhoneNumber()"
+            (ngModelChange)="formPhoneNumber.set($event)"
+            placeholder="+55 (11) 99999-9999" />
+        </div>
+
+        <div class="field">
+          <label>Nome do cliente (opcional)</label>
+          <input type="text" [(ngModel)]="formContactName" placeholder="Ex: Maria Silva" />
+        </div>
+
+        <div class="field">
+          <label>Título do agendamento</label>
+          <input type="text" [(ngModel)]="formTitle" placeholder="Ex: Consulta, Revisão do carro..." />
+        </div>
+
+        <div class="field">
+          <label>Data e hora</label>
+          <input type="datetime-local" [(ngModel)]="formDateTime" />
+        </div>
+
+        <div class="field">
+          <label>Observações (opcional)</label>
+          <textarea rows="2" [(ngModel)]="formNotes"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Lembrar o cliente</label>
+          <div class="reminder-chips">
+            @for (opt of reminderPresets; track opt.minutes) {
+              <button
+                type="button"
+                class="reminder-chip-btn"
+                [class.selected]="formReminderMinutes().includes(opt.minutes)"
+                (click)="toggleReminder(opt.minutes)">
+                {{ opt.label }}
+              </button>
+            }
+            @for (m of formReminderMinutes(); track m) {
+              @if (isCustomReminder(m)) {
+                <button type="button" class="reminder-chip-btn selected" (click)="removeReminder(m)">
+                  {{ formatMinutesLabel(m) }} ✕
+                </button>
+              }
+            }
+          </div>
+          <div class="custom-reminder-row">
+            <input
+              type="number"
+              min="1"
+              placeholder="Outro valor (minutos)"
+              [ngModel]="formCustomMinutesInput()"
+              (ngModelChange)="formCustomMinutesInput.set($event)"
+              (keyup.enter)="addCustomReminder()" />
+            <button type="button" class="btn-ghost" (click)="addCustomReminder()">Adicionar</button>
+          </div>
+          <p class="field-hint">
+            Dica pra testar rápido: crie o agendamento pra daqui a poucos minutos e adicione um lembrete
+            de "1 min antes" — assim você não precisa esperar 1 hora pra ver se funciona.
+          </p>
+        </div>
+
+        <div class="field">
+          <label>Mensagem do lembrete (opcional — use {{ '{' }}nome{{ '}' }}, {{ '{' }}titulo{{ '}' }}, {{ '{' }}data{{ '}' }}, {{ '{' }}hora{{ '}' }})</label>
+          <textarea rows="2" [(ngModel)]="formCustomMessage" placeholder="Deixe em branco para usar a mensagem padrão"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" (click)="closeForm()">Cancelar</button>
+          <button class="btn-primary" (click)="submit()" [disabled]="saving()">
+            {{ saving() ? 'Criando...' : 'Criar agendamento' }}
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+@if (confirmDeleteFor(); as appt) {
+  <div class="modal-backdrop" (click)="cancelDeleteDialog()">
+    <div class="confirm-modal" (click)="$event.stopPropagation()">
+      <h3>Remover "{{ appt.title }}"?</h3>
+      <p>Os lembretes pendentes também são cancelados. Essa ação não pode ser desfeita.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="cancelDeleteDialog()">Cancelar</button>
+        <button class="btn-danger" (click)="confirmDelete()">Remover</button>
+      </div>
+    </div>
+  </div>
+}

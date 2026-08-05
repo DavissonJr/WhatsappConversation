@@ -33,6 +33,8 @@
         <div class="connection-actions">
           @if (!conn.isConnected) {
             <button class="btn-secondary" (click)="showQrCode(conn)">Ver QR Code</button>
+          } @else {
+            <button class="btn-danger" (click)="disconnect(conn)">Desconectar</button>
           }
           <button class="btn-ghost" (click)="checkStatus(conn)">Atualizar status</button>
         </div>

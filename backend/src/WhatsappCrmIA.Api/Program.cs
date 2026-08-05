@@ -28,6 +28,7 @@ builder.Services.AddHttpClient<IAiAgentService, ClaudeAiAgentService>();
 // ---- Autenticação (hash de senha + emissão de JWT próprio) ----
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IWebhookUrlBuilder, WebhookUrlBuilder>();
 
 // ---- Jobs agendados (lembretes) ----
 builder.Services.AddHangfire(cfg => cfg

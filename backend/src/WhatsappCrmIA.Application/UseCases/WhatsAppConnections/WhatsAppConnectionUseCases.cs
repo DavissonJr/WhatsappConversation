@@ -32,23 +32,36 @@ public class CreateWhatsAppConnectionHandler
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IWebhookUrlBuilder _webhookUrlBuilder;
 
     public CreateWhatsAppConnectionHandler(
-        IApplicationDbContext db, IWhatsAppGateway whatsApp, ICurrentTenantService currentTenant)
+        IApplicationDbContext db,
+        IWhatsAppGateway whatsApp,
+        ICurrentTenantService currentTenant,
+        IWebhookUrlBuilder webhookUrlBuilder)
     {
         _db = db;
         _whatsApp = whatsApp;
         _currentTenant = currentTenant;
+        _webhookUrlBuilder = webhookUrlBuilder;
     }
 
     public async Task<WhatsAppConnectionDto> Handle(
         CreateWhatsAppConnectionCommand request, CancellationToken ct)
     {
+        if (_currentTenant.TenantId is not { } tenantId)
+            throw new InvalidOperationException("Tenant não identificado.");
+
         // Nome de instância único e legível: tenant + label + sufixo curto.
         var slug = request.Label.ToLowerInvariant().Replace(" ", "-");
-        var instanceName = $"{_currentTenant.TenantId:N}-{slug}"[..Math.Min(40, $"{_currentTenant.TenantId:N}-{slug}".Length)];
+        var instanceName = $"{tenantId:N}-{slug}"[..Math.Min(40, $"{tenantId:N}-{slug}".Length)];
 
         await _whatsApp.CreateInstanceAsync(instanceName, ct);
+
+        // Já deixa o webhook configurado, para que mensagens recebidas cheguem
+        // automaticamente na nossa API sem passo manual nenhum.
+        var webhookUrl = _webhookUrlBuilder.Build(tenantId, instanceName);
+        await _whatsApp.SetWebhookAsync(instanceName, webhookUrl, ct);
 
         var connection = new WhatsAppConnection
         {
@@ -114,5 +127,35 @@ public class RefreshConnectionStatusHandler : IRequestHandler<RefreshConnectionS
 
         await _db.SaveChangesAsync(ct);
         return isConnected;
+    }
+}
+
+public record DisconnectWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<bool>;
+
+public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWhatsAppConnectionCommand, bool>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly IWhatsAppGateway _whatsApp;
+
+    public DisconnectWhatsAppConnectionHandler(IApplicationDbContext db, IWhatsAppGateway whatsApp)
+    {
+        _db = db;
+        _whatsApp = whatsApp;
+    }
+
+    public async Task<bool> Handle(DisconnectWhatsAppConnectionCommand request, CancellationToken ct)
+    {
+        var connection = await _db.WhatsAppConnections.FirstOrDefaultAsync(c => c.Id == request.ConnectionId, ct);
+        if (connection is null) return false;
+
+        await _whatsApp.LogoutAsync(connection.InstanceName, ct);
+
+        connection.IsConnected = false;
+        connection.PhoneNumber = null;
+        connection.ConnectedAtUtc = null;
+        connection.QrCodeBase64 = null;
+
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 }

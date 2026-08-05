@@ -50,6 +50,19 @@
   gap: 8px;
 }
 
+.btn-danger {
+  padding: 8px 14px;
+  background: var(--rose-100);
+  color: var(--rose-500);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: var(--rose-500); color: white; }
+}
+
 .qr-modal-backdrop {
   position: fixed;
   inset: 0;

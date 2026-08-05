@@ -24,4 +24,8 @@ export class WhatsAppConnectionService {
   refreshStatus(id: string): Observable<{ isConnected: boolean }> {
     return this.http.post<{ isConnected: boolean }>(`${this.baseUrl}/${id}/refresh-status`, {});
   }
+
+  disconnect(id: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${id}/disconnect`, {});
+  }
 }

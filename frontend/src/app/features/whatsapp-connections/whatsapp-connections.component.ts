@@ -72,4 +72,14 @@ export class WhatsAppConnectionsComponent implements OnInit {
       if (res.isConnected) this.closeQrCode();
     });
   }
+
+  disconnect(conn: WhatsAppConnection): void {
+    if (!confirm(`Desconectar o número "${conn.label}"? Você poderá reconectar depois escaneando um novo QR code.`)) return;
+
+    this.service.disconnect(conn.id).subscribe(() => {
+      this.connections.update((list) =>
+        list.map((c) => (c.id === conn.id ? { ...c, isConnected: false, phoneNumber: undefined } : c)),
+      );
+    });
+  }
 }

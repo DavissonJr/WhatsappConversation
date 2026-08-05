@@ -66,6 +66,28 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task SetWebhookAsync(string instanceName, string webhookUrl, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            webhook = new
+            {
+                url = webhookUrl,
+                enabled = true,
+                events = new[] { "MESSAGES_UPSERT" }
+            }
+        };
+
+        var response = await _http.PostAsJsonAsync($"/webhook/set/{instanceName}", payload, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task LogoutAsync(string instanceName, CancellationToken ct = default)
+    {
+        var response = await _http.DeleteAsync($"/instance/logout/{instanceName}", ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     private class QrCodeResponse
     {
         [JsonPropertyName("base64")]

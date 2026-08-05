@@ -38,4 +38,11 @@ public class WhatsAppConnectionsController : ControllerBase
         var isConnected = await _mediator.Send(new RefreshConnectionStatusCommand(id), ct);
         return Ok(new { isConnected });
     }
+
+    [HttpPost("{id:guid}/disconnect")]
+    public async Task<IActionResult> Disconnect(Guid id, CancellationToken ct)
+    {
+        var success = await _mediator.Send(new DisconnectWhatsAppConnectionCommand(id), ct);
+        return success ? Ok() : NotFound();
+    }
 }

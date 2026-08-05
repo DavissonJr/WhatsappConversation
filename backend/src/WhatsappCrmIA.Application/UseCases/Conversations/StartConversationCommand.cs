@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using WhatsappCrmIA.Application.Interfaces;
+using WhatsappCrmIA.Domain.Common;
 using WhatsappCrmIA.Domain.Entities;
 using WhatsappCrmIA.Domain.Enums;
 
@@ -21,11 +22,19 @@ public class StartConversationHandler : IRequestHandler<StartConversationCommand
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
+    private readonly INotificationService _notifications;
+    private readonly ICurrentTenantService _currentTenant;
 
-    public StartConversationHandler(IApplicationDbContext db, IWhatsAppGateway whatsApp)
+    public StartConversationHandler(
+        IApplicationDbContext db,
+        IWhatsAppGateway whatsApp,
+        INotificationService notifications,
+        ICurrentTenantService currentTenant)
     {
         _db = db;
         _whatsApp = whatsApp;
+        _notifications = notifications;
+        _currentTenant = currentTenant;
     }
 
     public async Task<Guid?> Handle(StartConversationCommand request, CancellationToken ct)
@@ -34,17 +43,30 @@ public class StartConversationHandler : IRequestHandler<StartConversationCommand
             .FirstOrDefaultAsync(w => w.Id == request.WhatsAppConnectionId, ct);
         if (connection is null) return null;
 
+        var normalizedPhone = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
+
         var contact = await _db.Contacts
-            .FirstOrDefaultAsync(c => c.PhoneNumber == request.PhoneNumber, ct);
+            .FirstOrDefaultAsync(c => c.PhoneNumber == normalizedPhone, ct);
 
         if (contact is null)
         {
             contact = new Contact
             {
-                PhoneNumber = request.PhoneNumber,
+                PhoneNumber = normalizedPhone,
                 Name = request.ContactName
             };
             _db.Contacts.Add(contact);
+        }
+
+        // Contatos já existentes que ainda não têm foto também tentam buscar de novo.
+        if (string.IsNullOrEmpty(contact.ProfilePictureUrl))
+        {
+            try
+            {
+                contact.ProfilePictureUrl = await _whatsApp.GetProfilePictureUrlAsync(
+                    connection.InstanceName, normalizedPhone, ct);
+            }
+            catch { /* segue sem foto */ }
         }
 
         var conversation = await _db.Conversations
@@ -64,7 +86,7 @@ public class StartConversationHandler : IRequestHandler<StartConversationCommand
             _db.Conversations.Add(conversation);
         }
 
-        await _whatsApp.SendTextMessageAsync(connection.InstanceName, request.PhoneNumber, request.Content, ct);
+        await _whatsApp.SendTextMessageAsync(connection.InstanceName, normalizedPhone, request.Content, ct);
 
         _db.Messages.Add(new Message
         {
@@ -77,6 +99,9 @@ public class StartConversationHandler : IRequestHandler<StartConversationCommand
 
         conversation.LastMessageAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        if (_currentTenant.TenantId is { } tenantId)
+            await _notifications.NotifyConversationUpdated(tenantId, conversation.Id);
 
         return conversation.Id;
     }

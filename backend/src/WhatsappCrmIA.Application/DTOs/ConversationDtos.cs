@@ -1,6 +1,6 @@
 namespace WhatsappCrmIA.Application.DTOs;
 
-public record ContactDto(Guid Id, string? Name, string PhoneNumber);
+public record ContactDto(Guid Id, string? Name, string PhoneNumber, string? ProfilePictureUrl);
 
 public record MessageDto(
     Guid Id,

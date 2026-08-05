@@ -29,4 +29,8 @@ export class ConversationService {
   }): Observable<{ conversationId: string }> {
     return this.http.post<{ conversationId: string }>(`${this.baseUrl}/start`, payload);
   }
+
+  delete(conversationId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${conversationId}`);
+  }
 }

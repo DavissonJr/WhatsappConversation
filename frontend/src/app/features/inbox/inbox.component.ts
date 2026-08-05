@@ -52,6 +52,9 @@ export class InboxComponent implements OnInit, OnDestroy {
   scopeLabels = SCOPE_LABELS;
   showTemplatePicker = signal(false);
 
+  confirmDeleteConversation = signal(false);
+  deletingConversation = signal(false);
+
   ngOnInit(): void {
     this.loadConversations();
     this.connectionService.getAll().subscribe((data) => {
@@ -185,6 +188,39 @@ export class InboxComponent implements OnInit, OnDestroy {
   useTemplate(template: MessageTemplate): void {
     this.draftMessage.set(template.content);
     this.showTemplatePicker.set(false);
+  }
+
+  initials(name: string | undefined, phone: string): string {
+    const source = name?.trim() || phone;
+    return source.charAt(0).toUpperCase();
+  }
+
+  askDeleteConversation(): void {
+    this.confirmDeleteConversation.set(true);
+  }
+
+  cancelDeleteConversation(): void {
+    this.confirmDeleteConversation.set(false);
+  }
+
+  confirmDeleteConversationAction(): void {
+    const conv = this.selectedConversation();
+    if (!conv) return;
+
+    this.deletingConversation.set(true);
+    this.conversationService.delete(conv.id).subscribe({
+      next: () => {
+        this.deletingConversation.set(false);
+        this.confirmDeleteConversation.set(false);
+        this.selectedConversation.set(null);
+        this.toast.success('Conversa removida.');
+        this.loadConversations();
+      },
+      error: () => {
+        this.deletingConversation.set(false);
+        this.toast.error('Não foi possível remover essa conversa.');
+      },
+    });
   }
 
   openNewConversation(): void {

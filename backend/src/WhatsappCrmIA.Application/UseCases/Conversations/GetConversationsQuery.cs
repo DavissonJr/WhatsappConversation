@@ -27,7 +27,7 @@ public class GetConversationsHandler
         return conversations
             .Select(c => new ConversationSummaryDto(
                 c.Id,
-                new ContactDto(c.Contact.Id, c.Contact.Name, c.Contact.PhoneNumber),
+                new ContactDto(c.Contact.Id, c.Contact.Name, c.Contact.PhoneNumber, c.Contact.ProfilePictureUrl),
                 c.Status.ToString(),
                 c.LastMessageAtUtc,
                 c.Messages.OrderByDescending(m => m.CreatedAtUtc).FirstOrDefault()?.Content))

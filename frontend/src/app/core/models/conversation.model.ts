@@ -2,6 +2,7 @@ export interface Contact {
   id: string;
   name?: string;
   phoneNumber: string;
+  profilePictureUrl?: string;
 }
 
 export type ConversationStatus = 'Open' | 'WaitingHuman' | 'Closed';

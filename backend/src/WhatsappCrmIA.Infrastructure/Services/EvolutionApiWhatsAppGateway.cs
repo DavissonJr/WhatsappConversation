@@ -101,6 +101,19 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
             await EnsureSuccessOrThrowAsync(response, ct);
     }
 
+    public async Task<string?> GetProfilePictureUrlAsync(
+        string instanceName, string phoneNumber, CancellationToken ct = default)
+    {
+        var payload = new { number = phoneNumber };
+        var response = await _http.PostAsJsonAsync($"/chat/fetchProfilePictureUrl/{instanceName}", payload, ct);
+
+        // Não tem foto ou número inválido não deve derrubar o fluxo — só retorna null.
+        if (!response.IsSuccessStatusCode) return null;
+
+        var result = await response.Content.ReadFromJsonAsync<ProfilePictureResponse>(cancellationToken: ct);
+        return result?.ProfilePictureUrl;
+    }
+
     /// <summary>
     /// Em vez de EnsureSuccessStatusCode() (que descarta o corpo da resposta),
     /// lê o corpo e lança uma exceção com o motivo real que a Evolution API deu.
@@ -111,6 +124,12 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
 
         var body = await response.Content.ReadAsStringAsync(ct);
         throw new EvolutionApiException((int)response.StatusCode, body);
+    }
+
+    private class ProfilePictureResponse
+    {
+        [JsonPropertyName("profilePictureUrl")]
+        public string? ProfilePictureUrl { get; set; }
     }
 
     private class QrCodeResponse

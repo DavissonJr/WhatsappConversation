@@ -9,9 +9,18 @@
         <li
           [class.active]="selectedConversation()?.id === conv.id"
           (click)="select(conv)">
-          <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
-          <span class="preview">{{ conv.lastMessagePreview }}</span>
-          <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
+          <div class="avatar-sm">
+            @if (conv.contact.profilePictureUrl) {
+              <img [src]="conv.contact.profilePictureUrl" alt="" />
+            } @else {
+              <span>{{ initials(conv.contact.name, conv.contact.phoneNumber) }}</span>
+            }
+          </div>
+          <div class="li-content">
+            <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
+            <span class="preview">{{ conv.lastMessagePreview }}</span>
+            <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
+          </div>
         </li>
       } @empty {
         <li class="empty">Nenhuma conversa ainda. Clique em "+" para começar uma.</li>
@@ -22,7 +31,20 @@
   <section class="chat-panel">
     @if (selectedConversation(); as conv) {
       <header>
-        <h3>{{ conv.contact.name || conv.contact.phoneNumber }}</h3>
+        <div class="avatar-lg">
+          @if (conv.contact.profilePictureUrl) {
+            <img [src]="conv.contact.profilePictureUrl" alt="" />
+          } @else {
+            <span>{{ initials(conv.contact.name, conv.contact.phoneNumber) }}</span>
+          }
+        </div>
+        <div class="header-info">
+          <h3>{{ conv.contact.name || conv.contact.phoneNumber }}</h3>
+          @if (conv.contact.name) {
+            <span class="header-phone">{{ conv.contact.phoneNumber }}</span>
+          }
+        </div>
+        <button class="delete-conversation-btn" (click)="askDeleteConversation()" title="Remover conversa">🗑</button>
       </header>
 
       <div class="messages">
@@ -122,6 +144,21 @@
           </button>
         </div>
       }
+    </div>
+  </div>
+}
+
+@if (confirmDeleteConversation()) {
+  <div class="modal-backdrop" (click)="cancelDeleteConversation()">
+    <div class="confirm-modal" (click)="$event.stopPropagation()">
+      <h3>Remover essa conversa?</h3>
+      <p>Todo o histórico de mensagens dela será apagado. Essa ação não pode ser desfeita.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="cancelDeleteConversation()">Cancelar</button>
+        <button class="btn-danger" (click)="confirmDeleteConversationAction()" [disabled]="deletingConversation()">
+          {{ deletingConversation() ? 'Removendo...' : 'Remover' }}
+        </button>
+      </div>
     </div>
   </div>
 }

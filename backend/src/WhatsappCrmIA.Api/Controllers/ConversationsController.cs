@@ -54,4 +54,11 @@ public class ConversationsController : ControllerBase
         var success = await _mediator.Send(new SendManualMessageCommand(id, request.Content), ct);
         return success ? Ok() : NotFound();
     }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var success = await _mediator.Send(new DeleteConversationCommand(id), ct);
+        return success ? Ok() : NotFound();
+    }
 }

@@ -11,6 +11,7 @@ public class Contact : BaseEntity
     public string? Name { get; set; }
     public string? Notes { get; set; }
     public bool IsBlocked { get; set; }
+    public string? ProfilePictureUrl { get; set; }
 
     public ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
 }

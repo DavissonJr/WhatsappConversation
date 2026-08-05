@@ -26,7 +26,7 @@ public class GetConversationByIdHandler
 
         return new ConversationDetailDto(
             conversation.Id,
-            new ContactDto(conversation.Contact.Id, conversation.Contact.Name, conversation.Contact.PhoneNumber),
+            new ContactDto(conversation.Contact.Id, conversation.Contact.Name, conversation.Contact.PhoneNumber, conversation.Contact.ProfilePictureUrl),
             conversation.Status.ToString(),
             conversation.LastMessageAtUtc,
             conversation.Messages

@@ -27,4 +27,10 @@ public interface IWhatsAppGateway
     /// Remove a instância definitivamente da Evolution API.
     /// </summary>
     Task DeleteInstanceAsync(string instanceName, CancellationToken ct = default);
+
+    /// <summary>
+    /// Busca a URL da foto de perfil do WhatsApp de um número. Retorna null se
+    /// não tiver foto (perfil sem foto, ou número ainda não é contato válido).
+    /// </summary>
+    Task<string?> GetProfilePictureUrlAsync(string instanceName, string phoneNumber, CancellationToken ct = default);
 }

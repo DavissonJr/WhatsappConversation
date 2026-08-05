@@ -71,20 +71,43 @@ public class ProcessIncomingMessageHandler
         }
 
         // 1. Garante o contato
+        var normalizedPhone = Domain.Common.PhoneNumberNormalizer.Normalize(request.FromPhoneNumber);
         var contact = await _db.Contacts
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.TenantId == request.TenantId
-                                       && c.PhoneNumber == request.FromPhoneNumber, ct);
+                                       && c.PhoneNumber == normalizedPhone, ct);
 
         if (contact is null)
         {
             contact = new Contact
             {
                 TenantId = request.TenantId,
-                PhoneNumber = request.FromPhoneNumber,
+                PhoneNumber = normalizedPhone,
                 Name = request.ContactName
             };
             _db.Contacts.Add(contact);
+        }
+
+        // Contatos criados antes dessa funcionalidade existir (ou cuja busca anterior
+        // falhou) ainda não têm foto — tenta buscar de novo sempre que estiver faltando.
+        if (string.IsNullOrEmpty(contact.ProfilePictureUrl))
+        {
+            try
+            {
+                contact.ProfilePictureUrl = await _whatsApp.GetProfilePictureUrlAsync(
+                    whatsappConnection.InstanceName, normalizedPhone, ct);
+
+                if (string.IsNullOrEmpty(contact.ProfilePictureUrl))
+                {
+                    _logger.LogInformation(
+                        "Busca de foto de perfil retornou vazia para {Phone} (pode ser que o contato não tenha foto).",
+                        normalizedPhone);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao buscar foto de perfil para {Phone}.", normalizedPhone);
+            }
         }
 
         // 2. Garante a conversa aberta (ligada a esse contato E a esse número específico)

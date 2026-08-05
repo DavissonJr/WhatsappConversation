@@ -33,4 +33,8 @@ export class ConversationService {
   delete(conversationId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${conversationId}`);
   }
+
+  dismissSuggestion(conversationId: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${conversationId}/dismiss-suggestion`, {});
+  }
 }

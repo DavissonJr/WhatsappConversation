@@ -30,7 +30,8 @@ public class GetConversationsHandler
                 new ContactDto(c.Contact.Id, c.Contact.Name, c.Contact.PhoneNumber, c.Contact.ProfilePictureUrl),
                 c.Status.ToString(),
                 c.LastMessageAtUtc,
-                c.Messages.OrderByDescending(m => m.CreatedAtUtc).FirstOrDefault()?.Content))
+                c.Messages.OrderByDescending(m => m.CreatedAtUtc).FirstOrDefault()?.Content,
+                c.PendingAiSuggestion))
             .ToList();
     }
 }

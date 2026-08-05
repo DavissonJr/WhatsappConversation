@@ -19,7 +19,11 @@
           <div class="li-content">
             <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
             <span class="preview">{{ conv.lastMessagePreview }}</span>
-            <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
+            @if (conv.pendingAiSuggestion) {
+              <span class="status ai-pending">💡 sugestão da IA</span>
+            } @else {
+              <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
+            }
           </div>
         </li>
       } @empty {
@@ -62,6 +66,23 @@
 
       @if (sendError()) {
         <div class="error-banner">{{ sendError() }}</div>
+      }
+
+      @if (conv.pendingAiSuggestion) {
+        <div class="ai-suggestion-card">
+          <div class="ai-suggestion-header">
+            <span class="ai-suggestion-icon">💡</span>
+            <span>A IA sugeriu esta resposta — revise antes de enviar</span>
+          </div>
+          <p class="ai-suggestion-text">{{ conv.pendingAiSuggestion }}</p>
+          <div class="ai-suggestion-actions">
+            <button class="btn-ghost" (click)="dismissSuggestion()">Descartar</button>
+            <button class="btn-secondary" (click)="useSuggestion(conv.pendingAiSuggestion)">Editar antes de enviar</button>
+            <button class="btn-primary" (click)="sendSuggestionDirectly()" [disabled]="sendingMessage()">
+              Enviar como está
+            </button>
+          </div>
+        </div>
       }
 
       @if (showTemplatePicker()) {

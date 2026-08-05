@@ -61,4 +61,11 @@ public class ConversationsController : ControllerBase
         var success = await _mediator.Send(new DeleteConversationCommand(id), ct);
         return success ? Ok() : NotFound();
     }
+
+    [HttpPost("{id:guid}/dismiss-suggestion")]
+    public async Task<IActionResult> DismissSuggestion(Guid id, CancellationToken ct)
+    {
+        var success = await _mediator.Send(new DismissAiSuggestionCommand(id), ct);
+        return success ? Ok() : NotFound();
+    }
 }

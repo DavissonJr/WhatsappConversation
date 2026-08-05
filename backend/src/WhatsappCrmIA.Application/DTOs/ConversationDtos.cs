@@ -15,11 +15,13 @@ public record ConversationSummaryDto(
     ContactDto Contact,
     string Status,
     DateTime LastMessageAtUtc,
-    string? LastMessagePreview);
+    string? LastMessagePreview,
+    string? PendingAiSuggestion);
 
 public record ConversationDetailDto(
     Guid Id,
     ContactDto Contact,
     string Status,
     DateTime LastMessageAtUtc,
-    IReadOnlyList<MessageDto> Messages);
+    IReadOnlyList<MessageDto> Messages,
+    string? PendingAiSuggestion);

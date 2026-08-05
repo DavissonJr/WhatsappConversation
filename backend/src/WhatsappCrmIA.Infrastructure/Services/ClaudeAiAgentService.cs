@@ -15,7 +15,7 @@ namespace WhatsappCrmIA.Infrastructure.Services;
 public class ClaudeAiAgentService : IAiAgentService
 {
     private readonly HttpClient _http;
-    private const string Model = "claude-sonnet-4-6"; // ajuste conforme necessidade/custo
+    private const string Model = "claude-sonnet-5";
 
     public ClaudeAiAgentService(HttpClient http, IConfiguration config)
     {
@@ -23,6 +23,13 @@ public class ClaudeAiAgentService : IAiAgentService
         _http.BaseAddress = new Uri("https://api.anthropic.com/");
         _http.DefaultRequestHeaders.Add("x-api-key", config["Anthropic:ApiKey"]);
         _http.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+    }
+
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode) return;
+        var body = await response.Content.ReadAsStringAsync(ct);
+        throw new InvalidOperationException($"Anthropic API respondeu {(int)response.StatusCode}: {body}");
     }
 
     public async Task<AiReplyResult> GenerateReplyAsync(
@@ -51,7 +58,7 @@ public class ClaudeAiAgentService : IAiAgentService
         };
 
         var response = await _http.PostAsJsonAsync("v1/messages", payload, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
 
         var raw = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: ct);
         var text = raw?.Content?.FirstOrDefault(c => c.Type == "text")?.Text ?? "{}";
@@ -98,7 +105,7 @@ public class ClaudeAiAgentService : IAiAgentService
         };
 
         var response = await _http.PostAsJsonAsync("v1/messages", payload, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowAsync(response, ct);
 
         var raw = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: ct);
         return raw?.Content?.FirstOrDefault(c => c.Type == "text")?.Text ?? string.Empty;

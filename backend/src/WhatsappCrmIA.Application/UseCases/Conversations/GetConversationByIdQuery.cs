@@ -34,6 +34,7 @@ public class GetConversationByIdHandler
                 .Select(m => new MessageDto(
                     m.Id, m.Content, m.Direction.ToString(), m.SentBy.ToString(),
                     m.AiGenerated, m.CreatedAtUtc))
-                .ToList());
+                .ToList(),
+            conversation.PendingAiSuggestion);
     }
 }

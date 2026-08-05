@@ -22,6 +22,7 @@ export interface ConversationSummary {
   status: ConversationStatus;
   lastMessageAtUtc: string;
   lastMessagePreview?: string;
+  pendingAiSuggestion?: string;
 }
 
 export interface Conversation {
@@ -30,4 +31,5 @@ export interface Conversation {
   status: ConversationStatus;
   lastMessageAtUtc: string;
   messages: Message[];
+  pendingAiSuggestion?: string;
 }

@@ -195,6 +195,31 @@ export class InboxComponent implements OnInit, OnDestroy {
     return source.charAt(0).toUpperCase();
   }
 
+  useSuggestion(suggestion: string): void {
+    this.draftMessage.set(suggestion);
+  }
+
+  sendSuggestionDirectly(): void {
+    const conv = this.selectedConversation();
+    if (!conv?.pendingAiSuggestion) return;
+    this.draftMessage.set(conv.pendingAiSuggestion);
+    this.send();
+  }
+
+  dismissSuggestion(): void {
+    const conv = this.selectedConversation();
+    if (!conv) return;
+
+    this.conversationService.dismissSuggestion(conv.id).subscribe({
+      next: () => {
+        this.toast.info('Sugestão descartada.');
+        this.selectedConversation.update((c) => (c ? { ...c, pendingAiSuggestion: undefined } : c));
+        this.loadConversations(conv.id);
+      },
+      error: () => this.toast.error('Não foi possível descartar a sugestão.'),
+    });
+  }
+
   askDeleteConversation(): void {
     this.confirmDeleteConversation.set(true);
   }

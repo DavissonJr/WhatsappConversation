@@ -53,6 +53,7 @@ public class SendManualMessageHandler : IRequestHandler<SendManualMessageCommand
         });
 
         conversation.LastMessageAtUtc = DateTime.UtcNow;
+        conversation.PendingAiSuggestion = null;
         // Se a conversa estava esperando um humano, volta para "Open" após a resposta.
         if (conversation.Status == ConversationStatus.WaitingHuman)
             conversation.Status = ConversationStatus.Open;

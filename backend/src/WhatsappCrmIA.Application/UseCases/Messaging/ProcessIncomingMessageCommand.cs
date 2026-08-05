@@ -195,6 +195,7 @@ public class ProcessIncomingMessageHandler
         if (agentConfig.RequireHumanApproval || aiResult.ShouldEscalateToHuman)
         {
             conversation.Status = ConversationStatus.WaitingHuman;
+            conversation.PendingAiSuggestion = aiResult.ReplyText;
             await _db.SaveChangesAsync(ct);
             _logger.LogInformation(
                 "Mensagem recebida salva, aguardando aprovação humana. Conversa={ConversationId}", conversation.Id);

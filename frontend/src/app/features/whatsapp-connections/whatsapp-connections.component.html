@@ -84,7 +84,7 @@
     <div class="qr-modal-backdrop" (click)="cancelDelete()">
       <div class="confirm-modal" (click)="$event.stopPropagation()">
         <h3>Remover "{{ conn.label }}"?</h3>
-        <p>Essa ação não pode ser desfeita.</p>
+        <p>Isso também apaga todas as conversas e mensagens desse número. Essa ação não pode ser desfeita.</p>
         <div class="confirm-actions">
           <button class="btn-ghost" (click)="cancelDelete()">Cancelar</button>
           <button class="btn-danger" (click)="confirmDelete()">Remover</button>

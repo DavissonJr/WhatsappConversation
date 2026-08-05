@@ -53,7 +53,7 @@ public class ConversationConfiguration : IEntityTypeConfiguration<Conversation>
         builder.HasOne(c => c.WhatsAppConnection)
             .WithMany()
             .HasForeignKey(c => c.WhatsAppConnectionId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

@@ -1,13 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription, interval } from 'rxjs';
 import { ConversationService } from '../../core/services/conversation.service';
 import { WhatsAppConnectionService } from '../../core/services/whatsapp-connection.service';
 import { MessageTemplateService } from '../../core/services/message-template.service';
+import { ToastService } from '../../core/services/toast.service';
 import { Conversation, ConversationSummary } from '../../core/models/conversation.model';
 import { WhatsAppConnection } from '../../core/models/whatsapp-connection.model';
 import { MessageTemplate, SCOPE_LABELS } from '../../core/models/message-template.model';
 import { PhoneMaskDirective } from '../../shared/phone-mask.directive';
+
+const POLL_INTERVAL_MS = 4000;
 
 @Component({
   selector: 'app-inbox',
@@ -16,10 +20,13 @@ import { PhoneMaskDirective } from '../../shared/phone-mask.directive';
   templateUrl: './inbox.component.html',
   styleUrl: './inbox.component.scss',
 })
-export class InboxComponent implements OnInit {
+export class InboxComponent implements OnInit, OnDestroy {
   private conversationService = inject(ConversationService);
   private connectionService = inject(WhatsAppConnectionService);
   private templateService = inject(MessageTemplateService);
+  private toast = inject(ToastService);
+  private pollSubscription?: Subscription;
+  private lastKnownMessageTimes = new Map<string, string>();
 
   conversations = signal<ConversationSummary[]>([]);
   selectedConversation = signal<Conversation | null>(null);
@@ -47,6 +54,52 @@ export class InboxComponent implements OnInit {
       if (data.length) this.newConnectionId.set(data[0].id);
     });
     this.templateService.getAll().subscribe((data) => this.templates.set(data.filter((t) => t.isActive)));
+
+    // Atualização automática: como ainda não temos SignalR/tempo real,
+    // verificamos periodicamente se chegou mensagem nova.
+    this.pollSubscription = interval(POLL_INTERVAL_MS).subscribe(() => this.pollForUpdates());
+  }
+
+  ngOnDestroy(): void {
+    this.pollSubscription?.unsubscribe();
+  }
+
+  private pollForUpdates(): void {
+    const currentId = this.selectedConversation()?.id;
+
+    this.conversationService.getAll().subscribe({
+      next: (data) => {
+        this.notifyNewMessages(data, currentId);
+        this.conversations.set(data);
+      },
+      error: () => {}, // silencioso — não incomoda o usuário a cada 4s se a rede falhar uma vez
+    });
+
+    if (currentId) {
+      this.conversationService.getById(currentId).subscribe({
+        next: (full) => {
+          // Só atualiza se realmente mudou algo (evita "piscar" a tela à toa).
+          const current = this.selectedConversation();
+          if (!current || current.messages.length !== full.messages.length) {
+            this.selectedConversation.set(full);
+          }
+        },
+        error: () => {},
+      });
+    }
+  }
+
+  private notifyNewMessages(data: ConversationSummary[], currentlyOpenId: string | undefined): void {
+    for (const conv of data) {
+      const lastKnown = this.lastKnownMessageTimes.get(conv.id);
+      const isNew = lastKnown && lastKnown !== conv.lastMessageAtUtc;
+
+      // Só avisa se a conversa NÃO é a que está aberta na tela (essa já atualiza sozinha).
+      if (isNew && conv.id !== currentlyOpenId) {
+        this.toast.info(`Nova mensagem de ${conv.contact.name || conv.contact.phoneNumber}`);
+      }
+      this.lastKnownMessageTimes.set(conv.id, conv.lastMessageAtUtc);
+    }
   }
 
   loadConversations(selectId?: string): void {

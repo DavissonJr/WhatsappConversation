@@ -217,9 +217,11 @@ public class DisconnectWhatsAppConnectionHandler : IRequestHandler<DisconnectWha
     }
 }
 
-public record DeleteWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<bool>;
+public record DeleteWhatsAppConnectionCommand(Guid ConnectionId) : IRequest<DeleteConnectionResult>;
 
-public class DeleteWhatsAppConnectionHandler : IRequestHandler<DeleteWhatsAppConnectionCommand, bool>
+public record DeleteConnectionResult(bool Success, string? Error);
+
+public class DeleteWhatsAppConnectionHandler : IRequestHandler<DeleteWhatsAppConnectionCommand, DeleteConnectionResult>
 {
     private readonly IApplicationDbContext _db;
     private readonly IWhatsAppGateway _whatsApp;
@@ -230,10 +232,10 @@ public class DeleteWhatsAppConnectionHandler : IRequestHandler<DeleteWhatsAppCon
         _whatsApp = whatsApp;
     }
 
-    public async Task<bool> Handle(DeleteWhatsAppConnectionCommand request, CancellationToken ct)
+    public async Task<DeleteConnectionResult> Handle(DeleteWhatsAppConnectionCommand request, CancellationToken ct)
     {
         var connection = await _db.WhatsAppConnections.FirstOrDefaultAsync(c => c.Id == request.ConnectionId, ct);
-        if (connection is null) return false;
+        if (connection is null) return new DeleteConnectionResult(false, "Número não encontrado.");
 
         // Tenta remover na Evolution API também — se falhar (ex: já não existia lá),
         // ainda assim removemos do nosso banco para não deixar lixo na tela.
@@ -247,7 +249,17 @@ public class DeleteWhatsAppConnectionHandler : IRequestHandler<DeleteWhatsAppCon
         }
 
         _db.WhatsAppConnections.Remove(connection);
-        await _db.SaveChangesAsync(ct);
-        return true;
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            return new DeleteConnectionResult(false,
+                "Não foi possível remover esse número por um erro no banco de dados. Tente novamente.");
+        }
+
+        return new DeleteConnectionResult(true, null);
     }
 }

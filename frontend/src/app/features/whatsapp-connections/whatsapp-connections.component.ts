@@ -147,9 +147,9 @@ export class WhatsAppConnectionsComponent implements OnInit {
         this.connections.update((list) => list.filter((c) => c.id !== conn.id));
         this.toast.success(`"${conn.label}" foi removido.`);
       },
-      error: () => {
+      error: (err) => {
         this.deleting.set(null);
-        this.toast.error('Não foi possível remover esse número.');
+        this.toast.error(err?.error?.message ?? 'Não foi possível remover esse número.');
       },
     });
   }

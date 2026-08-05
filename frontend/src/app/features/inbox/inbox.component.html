@@ -1,16 +1,20 @@
 <div class="inbox">
   <aside class="conversation-list">
-    <h2>Conversas</h2>
+    <div class="list-header">
+      <h2>Conversas</h2>
+      <button class="new-conversation-btn" (click)="openNewConversation()" title="Nova conversa">+</button>
+    </div>
     <ul>
       @for (conv of conversations(); track conv.id) {
         <li
           [class.active]="selectedConversation()?.id === conv.id"
           (click)="select(conv)">
           <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
+          <span class="preview">{{ conv.lastMessagePreview }}</span>
           <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
         </li>
       } @empty {
-        <li class="empty">Nenhuma conversa ainda.</li>
+        <li class="empty">Nenhuma conversa ainda. Clique em "+" para começar uma.</li>
       }
     </ul>
   </aside>
@@ -41,7 +45,55 @@
         <button (click)="send()">Enviar</button>
       </footer>
     } @else {
-      <p class="empty">Selecione uma conversa</p>
+      <p class="empty">Selecione uma conversa ou inicie uma nova</p>
     }
   </section>
 </div>
+
+@if (showNewConversation()) {
+  <div class="modal-backdrop" (click)="closeNewConversation()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Nova conversa</h3>
+      <p class="modal-subtitle">Mande a primeira mensagem para um número que ainda não te escreveu.</p>
+
+      @if (newConversationError()) {
+        <div class="error-banner">{{ newConversationError() }}</div>
+      }
+
+      @if (connections().length === 0) {
+        <p class="empty">Você precisa conectar um número de WhatsApp antes. Vá em "Números WhatsApp".</p>
+      } @else {
+        <div class="field">
+          <label>Enviar a partir de</label>
+          <select [(ngModel)]="newConnectionId">
+            @for (c of connections(); track c.id) {
+              <option [value]="c.id">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Número do WhatsApp (com DDI e DDD, só números)</label>
+          <input type="text" [(ngModel)]="newPhoneNumber" placeholder="Ex: 5511999999999" />
+        </div>
+
+        <div class="field">
+          <label>Nome do contato (opcional)</label>
+          <input type="text" [(ngModel)]="newContactName" placeholder="Ex: Maria Silva" />
+        </div>
+
+        <div class="field">
+          <label>Primeira mensagem</label>
+          <textarea rows="3" [(ngModel)]="newFirstMessage" placeholder="Olá! Tudo bem?"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" (click)="closeNewConversation()">Cancelar</button>
+          <button class="btn-primary" (click)="startConversation()" [disabled]="startingConversation()">
+            {{ startingConversation() ? 'Enviando...' : 'Enviar' }}
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

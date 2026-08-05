@@ -7,6 +7,7 @@ using WhatsappCrmIA.Application.UseCases.Conversations;
 namespace WhatsappCrmIA.Api.Controllers;
 
 public record SendMessageRequest(string Content);
+public record StartConversationRequest(Guid WhatsAppConnectionId, string PhoneNumber, string? ContactName, string Content);
 
 /// <summary>
 /// Endpoints consumidos pelo Inbox do painel (Angular). Requer autenticação;
@@ -33,6 +34,18 @@ public class ConversationsController : ControllerBase
     {
         var result = await _mediator.Send(new GetConversationByIdQuery(id), ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost("start")]
+    public async Task<IActionResult> StartConversation(
+        [FromBody] StartConversationRequest request, CancellationToken ct)
+    {
+        var conversationId = await _mediator.Send(new StartConversationCommand(
+            request.WhatsAppConnectionId, request.PhoneNumber, request.ContactName, request.Content), ct);
+
+        return conversationId is null
+            ? BadRequest(new { message = "Número de WhatsApp de origem inválido." })
+            : Ok(new { conversationId });
     }
 
     [HttpPost("{id:guid}/messages")]

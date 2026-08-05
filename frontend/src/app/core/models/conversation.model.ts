@@ -15,6 +15,14 @@ export interface Message {
   createdAtUtc: string;
 }
 
+export interface ConversationSummary {
+  id: string;
+  contact: Contact;
+  status: ConversationStatus;
+  lastMessageAtUtc: string;
+  lastMessagePreview?: string;
+}
+
 export interface Conversation {
   id: string;
   contact: Contact;

@@ -51,6 +51,9 @@
             <span class="header-phone">{{ conv.contact.phoneNumber }}</span>
           }
         </div>
+        <button class="gen-proposal-btn" (click)="generateProposal()" [disabled]="generatingProposal()" title="Gerar proposta com IA">
+          {{ generatingProposal() ? '...' : '📄' }}
+        </button>
         <button class="delete-conversation-btn" (click)="askDeleteConversation()" title="Remover conversa">🗑</button>
       </header>
 

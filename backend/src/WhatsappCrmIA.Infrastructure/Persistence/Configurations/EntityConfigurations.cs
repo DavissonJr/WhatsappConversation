@@ -74,6 +74,13 @@ public class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
     public void Configure(EntityTypeBuilder<Proposal> builder)
     {
         builder.Property(p => p.Value).HasColumnType("decimal(18,2)");
+        builder.Property(p => p.Title).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.Description).HasMaxLength(4000).IsRequired();
+
+        builder.HasOne(p => p.Contact)
+            .WithMany()
+            .HasForeignKey(p => p.ContactId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

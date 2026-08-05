@@ -48,6 +48,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/appointments/appointments.component').then((m) => m.AppointmentsComponent),
       },
+      {
+        path: 'propostas',
+        loadComponent: () =>
+          import('./features/proposals/proposals.component').then((m) => m.ProposalsComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

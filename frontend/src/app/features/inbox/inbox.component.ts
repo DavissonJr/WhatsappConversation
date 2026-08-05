@@ -12,6 +12,7 @@ import { WhatsAppConnection } from '../../core/models/whatsapp-connection.model'
 import { MessageTemplate, SCOPE_LABELS } from '../../core/models/message-template.model';
 import { PhoneMaskDirective } from '../../shared/phone-mask.directive';
 import { OnboardingChecklistComponent } from '../../shared/onboarding/onboarding-checklist.component';
+import { ProposalService } from '../../core/services/proposal.service';
 
 // Fallback: se o SignalR cair por algum motivo, o polling garante que a tela
 // não fica desatualizada por muito tempo (a atualização "de verdade" vem do hub).
@@ -29,6 +30,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   private connectionService = inject(WhatsAppConnectionService);
   private templateService = inject(MessageTemplateService);
   private toast = inject(ToastService);
+  private proposalService = inject(ProposalService);
   private realtime = inject(RealtimeService);
   private pollSubscription?: Subscription;
   private realtimeSubscription?: Subscription;
@@ -55,6 +57,7 @@ export class InboxComponent implements OnInit, OnDestroy {
 
   confirmDeleteConversation = signal(false);
   deletingConversation = signal(false);
+  generatingProposal = signal(false);
 
   ngOnInit(): void {
     this.loadConversations();
@@ -302,5 +305,22 @@ export class InboxComponent implements OnInit, OnDestroy {
           );
         },
       });
+  }
+
+  generateProposal(): void {
+    const conv = this.selectedConversation();
+    if (!conv) return;
+
+    this.generatingProposal.set(true);
+    this.proposalService.generate(conv.id).subscribe({
+      next: () => {
+        this.generatingProposal.set(false);
+        this.toast.success('Proposta gerada! Vá em "Propostas" pra revisar e enviar.');
+      },
+      error: (err) => {
+        this.generatingProposal.set(false);
+        this.toast.error(err?.error?.message ?? 'Não foi possível gerar a proposta.');
+      },
+    });
   }
 }

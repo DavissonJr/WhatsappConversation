@@ -1,0 +1,95 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Propostas</h1>
+      <p>Geradas pela IA a partir das conversas, ou crie a partir do Inbox (botão 📄 no cabeçalho do chat).</p>
+    </div>
+  </header>
+
+  <div class="proposals-grid">
+    @for (p of proposals(); track p.id) {
+      <div class="proposal-card">
+        <div class="proposal-header">
+          <span class="status-badge" [attr.data-status]="p.status">{{ statusLabels[p.status] }}</span>
+          @if (p.aiGenerated) {
+            <span class="ai-badge">💡 IA</span>
+          }
+        </div>
+
+        <strong class="proposal-title">{{ p.title }}</strong>
+        <span class="proposal-contact">{{ p.contact.name || p.contact.phoneNumber }}</span>
+        <p class="proposal-description">{{ p.description }}</p>
+
+        @if (p.value) {
+          <div class="proposal-value">R$ {{ p.value | number: '1.2-2' }}</div>
+        }
+
+        <div class="proposal-actions">
+          @if (p.status === 'Draft') {
+            <button class="btn-ghost" (click)="openEdit(p)">Editar</button>
+            <button class="btn-primary" (click)="sendProposal(p)" [disabled]="sendingId() === p.id">
+              {{ sendingId() === p.id ? 'Enviando...' : 'Enviar' }}
+            </button>
+          }
+          @if (p.status === 'SentToClient') {
+            <button class="btn-ghost" (click)="markAccepted(p)">Marcar aceita</button>
+            <button class="btn-ghost" (click)="markRejected(p)">Marcar recusada</button>
+          }
+          <button class="btn-ghost danger" (click)="askDelete(p)">Remover</button>
+        </div>
+      </div>
+    } @empty {
+      <p class="empty-state">
+        Nenhuma proposta ainda. Abra uma conversa no Inbox e clique no ícone 📄 pra gerar a primeira com IA.
+      </p>
+    }
+  </div>
+</div>
+
+@if (editingProposal(); as proposal) {
+  <div class="modal-backdrop" (click)="closeEdit()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Editar proposta</h3>
+
+      <div class="field">
+        <label>Título</label>
+        <input type="text" [(ngModel)]="editTitle" />
+      </div>
+
+      <div class="field">
+        <label>Descrição</label>
+        <textarea rows="8" [(ngModel)]="editDescription"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Valor (opcional)</label>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          [ngModel]="editValue()"
+          (ngModelChange)="editValue.set($event)" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+        <button class="btn-primary" (click)="saveEdit()" [disabled]="saving()">
+          {{ saving() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (confirmDeleteFor(); as proposal) {
+  <div class="modal-backdrop" (click)="cancelDeleteDialog()">
+    <div class="confirm-modal" (click)="$event.stopPropagation()">
+      <h3>Remover "{{ proposal.title }}"?</h3>
+      <p>Essa ação não pode ser desfeita.</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="cancelDeleteDialog()">Cancelar</button>
+        <button class="btn-danger" (click)="confirmDelete()">Remover</button>
+      </div>
+    </div>
+  </div>
+}

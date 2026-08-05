@@ -68,15 +68,19 @@ public class EvolutionApiWhatsAppGateway : IWhatsAppGateway
 
     public async Task SetWebhookAsync(string instanceName, string webhookUrl, CancellationToken ct = default)
     {
-        // Formato correto da v2: campos no nível raiz do JSON (não aninhados
-        // em "webhook" — isso é do formato antigo da v1 e causa erro 400 na v2).
+        // Essa versão/build da Evolution API exige os campos ANINHADOS dentro de
+        // "webhook" (formato "v1 style"). Confirmado pelo erro real que ela retorna
+        // quando mandamos os campos soltos: 'instance requires property "webhook"'.
         var payload = new
         {
-            enabled = true,
-            url = webhookUrl,
-            webhookByEvents = false,
-            webhookBase64 = false,
-            events = new[] { "MESSAGES_UPSERT" }
+            webhook = new
+            {
+                enabled = true,
+                url = webhookUrl,
+                webhookByEvents = false,
+                webhookBase64 = false,
+                events = new[] { "MESSAGES_UPSERT" }
+            }
         };
 
         var response = await _http.PostAsJsonAsync($"/webhook/set/{instanceName}", payload, ct);

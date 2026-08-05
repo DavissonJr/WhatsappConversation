@@ -1,5 +1,6 @@
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using WhatsappCrmIA.Application.Interfaces;
 using WhatsappCrmIA.Application.UseCases.Messaging;
@@ -16,6 +17,17 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+
+// ---- Data Protection persistente ----
+// IMPORTANTE: sem isso, toda vez que o container reiniciar as chaves de
+// criptografia mudam, e qualquer segredo salvo antes (como a chave da
+// Anthropic de cada tenant) fica permanentemente ilegível. O volume
+// "dataprotection_keys" no docker-compose garante que a chave sobrevive
+// a rebuilds/restarts do container.
+builder.Services.AddDataProtection()
+    .SetApplicationName("WhatsappCrmIA")
+    .PersistKeysToFileSystem(new DirectoryInfo("/keys"));
+builder.Services.AddScoped<ISecretProtector, WhatsappCrmIA.Api.Services.SecretProtector>();
 
 // ---- Tenant atual (resolvido a partir do JWT) ----
 builder.Services.AddHttpContextAccessor();

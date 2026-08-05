@@ -1,7 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Configuration;
 using WhatsappCrmIA.Application.Interfaces;
 using WhatsappCrmIA.Domain.Enums;
 
@@ -9,20 +8,19 @@ namespace WhatsappCrmIA.Infrastructure.Services;
 
 /// <summary>
 /// Implementação de IAiAgentService usando a API da Anthropic (Claude).
-/// Usa "structured output" via prompt (pedindo JSON) para extrair a intenção
-/// detectada junto da resposta, evitando uma segunda chamada.
+/// A chave de API vem por chamada (não é mais fixa no construtor), porque
+/// cada tenant usa a própria conta/chave da Anthropic — o custo da IA sai
+/// da conta de cada empresa cliente, não da conta de quem administra o SaaS.
 /// </summary>
 public class ClaudeAiAgentService : IAiAgentService
 {
     private readonly HttpClient _http;
     private const string Model = "claude-sonnet-5";
 
-    public ClaudeAiAgentService(HttpClient http, IConfiguration config)
+    public ClaudeAiAgentService(HttpClient http)
     {
         _http = http;
         _http.BaseAddress = new Uri("https://api.anthropic.com/");
-        _http.DefaultRequestHeaders.Add("x-api-key", config["Anthropic:ApiKey"]);
-        _http.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
     }
 
     private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, CancellationToken ct)
@@ -32,7 +30,19 @@ public class ClaudeAiAgentService : IAiAgentService
         throw new InvalidOperationException($"Anthropic API respondeu {(int)response.StatusCode}: {body}");
     }
 
+    private HttpRequestMessage BuildRequest(string apiKey, object payload)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "v1/messages")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Add("x-api-key", apiKey);
+        request.Headers.Add("anthropic-version", "2023-06-01");
+        return request;
+    }
+
     public async Task<AiReplyResult> GenerateReplyAsync(
+        string apiKey,
         string systemPrompt,
         IReadOnlyList<(string role, string content)> conversationHistory,
         CancellationToken ct = default)
@@ -57,12 +67,14 @@ public class ClaudeAiAgentService : IAiAgentService
             messages = conversationHistory.Select(m => new { role = m.role, content = m.content })
         };
 
-        var response = await _http.PostAsJsonAsync("v1/messages", payload, ct);
+        var response = await _http.SendAsync(BuildRequest(apiKey, payload), ct);
         await EnsureSuccessOrThrowAsync(response, ct);
 
         var raw = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: ct);
         var text = raw?.Content?.FirstOrDefault(c => c.Type == "text")?.Text ?? "{}";
         var clean = text.Replace("```json", "").Replace("```", "").Trim();
+        var inputTokens = raw?.Usage?.InputTokens ?? 0;
+        var outputTokens = raw?.Usage?.OutputTokens ?? 0;
 
         try
         {
@@ -75,16 +87,19 @@ public class ClaudeAiAgentService : IAiAgentService
             return new AiReplyResult(
                 parsed?.Reply ?? "Desculpe, não consegui processar sua mensagem agora.",
                 intent,
-                parsed?.EscalateToHuman ?? false);
+                parsed?.EscalateToHuman ?? false,
+                inputTokens,
+                outputTokens);
         }
         catch (JsonException)
         {
             // fallback defensivo: se a IA não devolver JSON válido, ainda respondemos algo
-            return new AiReplyResult(clean, ConversationIntent.Unknown, true);
+            return new AiReplyResult(clean, ConversationIntent.Unknown, true, inputTokens, outputTokens);
         }
     }
 
     public async Task<string> GenerateProposalDraftAsync(
+        string apiKey,
         string businessContext,
         IReadOnlyList<(string role, string content)> conversationHistory,
         CancellationToken ct = default)
@@ -104,7 +119,7 @@ public class ClaudeAiAgentService : IAiAgentService
             messages = conversationHistory.Select(m => new { role = m.role, content = m.content })
         };
 
-        var response = await _http.PostAsJsonAsync("v1/messages", payload, ct);
+        var response = await _http.SendAsync(BuildRequest(apiKey, payload), ct);
         await EnsureSuccessOrThrowAsync(response, ct);
 
         var raw = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: ct);
@@ -124,6 +139,18 @@ public class ClaudeAiAgentService : IAiAgentService
     {
         [JsonPropertyName("content")]
         public List<ClaudeContentBlock>? Content { get; set; }
+
+        [JsonPropertyName("usage")]
+        public ClaudeUsage? Usage { get; set; }
+    }
+
+    private class ClaudeUsage
+    {
+        [JsonPropertyName("input_tokens")]
+        public int InputTokens { get; set; }
+
+        [JsonPropertyName("output_tokens")]
+        public int OutputTokens { get; set; }
     }
 
     private class ClaudeContentBlock

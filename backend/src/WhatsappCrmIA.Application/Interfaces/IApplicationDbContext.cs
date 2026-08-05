@@ -20,6 +20,7 @@ public interface IApplicationDbContext
     DbSet<Appointment> Appointments { get; }
     DbSet<Reminder> Reminders { get; }
     DbSet<MessageTemplate> MessageTemplates { get; }
+    DbSet<AiUsageLog> AiUsageLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

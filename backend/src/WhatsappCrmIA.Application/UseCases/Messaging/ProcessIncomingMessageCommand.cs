@@ -26,24 +26,32 @@ public record ProcessIncomingMessageResult(bool AutoReplied, string? ReplyText);
 public class ProcessIncomingMessageHandler
     : IRequestHandler<ProcessIncomingMessageCommand, ProcessIncomingMessageResult>
 {
+    // Preço aproximado por milhão de tokens (modelo Sonnet). Ajuste aqui se
+    // trocar de modelo ou se os preços da Anthropic mudarem.
+    private const decimal InputCostPerMillionTokens = 3.00m;
+    private const decimal OutputCostPerMillionTokens = 15.00m;
+
     private readonly IApplicationDbContext _db;
     private readonly IAiAgentService _aiAgent;
     private readonly IWhatsAppGateway _whatsApp;
     private readonly ILogger<ProcessIncomingMessageHandler> _logger;
     private readonly INotificationService _notifications;
+    private readonly ISecretProtector _secretProtector;
 
     public ProcessIncomingMessageHandler(
         IApplicationDbContext db,
         IAiAgentService aiAgent,
         IWhatsAppGateway whatsApp,
         ILogger<ProcessIncomingMessageHandler> logger,
-        INotificationService notifications)
+        INotificationService notifications,
+        ISecretProtector secretProtector)
     {
         _db = db;
         _aiAgent = aiAgent;
         _whatsApp = whatsApp;
         _logger = logger;
         _notifications = notifications;
+        _secretProtector = secretProtector;
     }
 
     public async Task<ProcessIncomingMessageResult> Handle(
@@ -160,6 +168,37 @@ public class ProcessIncomingMessageHandler
             return new ProcessIncomingMessageResult(false, null);
         }
 
+        // 4.5 Cada tenant usa a PRÓPRIA chave da Anthropic (custo sai da conta
+        // dele, não da sua). Sem chave configurada, não tem como chamar a IA.
+        if (string.IsNullOrEmpty(agentConfig.AnthropicApiKeyEncrypted))
+        {
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await _db.SaveChangesAsync(ct);
+            _logger.LogWarning(
+                "Mensagem recebida salva, mas o tenant ainda não configurou a chave da Anthropic " +
+                "(Configurações > Agente de IA). Conversa={ConversationId}", conversation.Id);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, null);
+        }
+
+        // 4.6 Limite de gasto auto-imposto pelo próprio tenant (opcional, é só
+        // um teto de segurança pra ele não ser surpreendido pela fatura da
+        // Anthropic — o dinheiro já é da conta dele, isso aqui não te protege,
+        // protege ELE).
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == request.TenantId, ct);
+        if (tenant is null || tenant.AiCreditsBalanceUsd <= 0m)
+        {
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await _db.SaveChangesAsync(ct);
+            _logger.LogWarning(
+                "Mensagem recebida salva, mas o limite de gasto de IA do tenant chegou a zero (saldo={Saldo}). Conversa={ConversationId}",
+                tenant?.AiCreditsBalanceUsd, conversation.Id);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, null);
+        }
+
+        var anthropicApiKey = _secretProtector.Decrypt(agentConfig.AnthropicApiKeyEncrypted);
+
         // 5. Monta histórico e chama a IA (Claude)
         var history = conversation.Messages
             .OrderBy(m => m.CreatedAtUtc)
@@ -172,12 +211,12 @@ public class ProcessIncomingMessageHandler
         AiReplyResult aiResult;
         try
         {
-            aiResult = await _aiAgent.GenerateReplyAsync(agentConfig.SystemPrompt, history, ct);
+            aiResult = await _aiAgent.GenerateReplyAsync(anthropicApiKey, agentConfig.SystemPrompt, history, ct);
         }
         catch (Exception ex)
         {
-            // Se a IA falhar (ex: chave da Anthropic inválida/não configurada), a mensagem
-            // AINDA PRECISA ser salva — só não vai ter resposta automática dessa vez.
+            // Se a IA falhar (ex: chave da Anthropic inválida/sem saldo na conta do tenant),
+            // a mensagem AINDA PRECISA ser salva — só não vai ter resposta automática dessa vez.
             _logger.LogError(ex,
                 "Falha ao chamar a IA para gerar resposta. A mensagem será salva mesmo assim, sem auto-resposta. Conversa={ConversationId}",
                 conversation.Id);
@@ -189,6 +228,20 @@ public class ProcessIncomingMessageHandler
         }
 
         conversation.LastDetectedIntent = aiResult.DetectedIntent;
+
+        // Desconta o custo real (baseado nos tokens usados) do saldo do tenant,
+        // e registra o consumo para o histórico/auditoria.
+        var costUsd = (aiResult.InputTokens / 1_000_000m) * InputCostPerMillionTokens
+                     + (aiResult.OutputTokens / 1_000_000m) * OutputCostPerMillionTokens;
+        tenant.AiCreditsBalanceUsd = Math.Max(0, tenant.AiCreditsBalanceUsd - costUsd);
+        _db.AiUsageLogs.Add(new AiUsageLog
+        {
+            TenantId = request.TenantId,
+            ConversationId = conversation.Id,
+            InputTokens = aiResult.InputTokens,
+            OutputTokens = aiResult.OutputTokens,
+            CostUsd = costUsd
+        });
 
         // 6. Se precisa de aprovação humana, apenas registra sugestão e para por aqui.
         //    (No painel, o agente humano aprova e um outro comando dispara o envio.)

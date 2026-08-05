@@ -25,6 +25,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
     public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
+    public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +44,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Appointment>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<Reminder>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<MessageTemplate>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
+        modelBuilder.Entity<AiUsageLog>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
 
         base.OnModelCreating(modelBuilder);
     }

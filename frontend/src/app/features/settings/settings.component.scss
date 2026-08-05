@@ -135,6 +135,68 @@
   &.error { background: var(--rose-100); color: #9f1239; }
 }
 
+.key-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 12px;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  &.connected { background: var(--signal-100); color: var(--signal-600); }
+  &.missing { background: var(--amber-100); color: #92400e; }
+}
+
+.key-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-ghost.danger:hover {
+  background: var(--rose-100);
+  color: var(--rose-500);
+  border-color: var(--rose-100);
+}
+
+.balance-display {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 20px;
+  background: var(--signal-100);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+
+  &.low {
+    background: var(--rose-100);
+
+    .balance-value { color: var(--rose-500); }
+  }
+
+  .balance-label {
+    font-size: 12px;
+    color: var(--ink-400);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .balance-value {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--signal-600);
+  }
+}
+
 .team-table {
   width: 100%;
   border-collapse: collapse;

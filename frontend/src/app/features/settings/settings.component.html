@@ -10,6 +10,7 @@
     <button [class.active]="activeTab() === 'perfil'" (click)="setTab('perfil')">Meu perfil</button>
     <button [class.active]="activeTab() === 'empresa'" (click)="setTab('empresa')">Empresa</button>
     <button [class.active]="activeTab() === 'ia'" (click)="setTab('ia')">Agente de IA</button>
+    <button [class.active]="activeTab() === 'creditos'" (click)="setTab('creditos')">Créditos de IA</button>
     <button [class.active]="activeTab() === 'equipe'" (click)="setTab('equipe')">Equipe</button>
   </div>
 
@@ -99,6 +100,33 @@
   @if (activeTab() === 'ia') {
     <div class="tab-content">
       <section class="settings-card">
+        <h2>Conta da Anthropic</h2>
+        <p class="section-subtitle">
+          Sua empresa usa a própria conta na Anthropic — o custo da IA sai do seu saldo lá,
+          não do nosso. Crie uma conta em
+          <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>,
+          gere uma chave de API e cole aqui.
+        </p>
+
+        @if (anthropicHasKey()) {
+          <div class="key-status connected">
+            <span class="dot"></span>
+            Chave configurada ({{ anthropicKeyPreview() }})
+          </div>
+          <div class="key-actions">
+            <button class="btn-ghost" (click)="openAnthropicKeyForm()">Trocar chave</button>
+            <button class="btn-ghost danger" (click)="removeAnthropicKey()">Remover</button>
+          </div>
+        } @else {
+          <div class="key-status missing">
+            <span class="dot"></span>
+            Nenhuma chave configurada — a IA não vai responder automaticamente até você cadastrar uma.
+          </div>
+          <button class="btn-primary" (click)="openAnthropicKeyForm()">+ Cadastrar chave</button>
+        }
+      </section>
+
+      <section class="settings-card">
         <h2>Assistente virtual</h2>
         <p class="section-subtitle">Como a IA se apresenta e se comporta ao responder seus clientes.</p>
 
@@ -147,6 +175,67 @@
         <button class="btn-primary" (click)="saveAiConfig()" [disabled]="savingAi()">
           {{ savingAi() ? 'Salvando...' : 'Salvar configuração' }}
         </button>
+      </section>
+    </div>
+  }
+
+  <!-- CRÉDITOS DE IA -->
+  @if (activeTab() === 'creditos') {
+    <div class="tab-content">
+      <section class="settings-card">
+        <h2>Saldo de créditos</h2>
+        <p class="section-subtitle">
+          Cada resposta que a IA gera consome uma fração desse saldo, calculada pelo uso real de tokens.
+          Quando acabar, a IA para de responder sozinha — as conversas continuam chegando normalmente,
+          só passam a esperar um atendente humano.
+        </p>
+
+        @if (creditsMessage(); as msg) {
+          <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+        }
+
+        @if (aiUsage(); as usage) {
+          <div class="balance-display" [class.low]="usage.balanceUsd < 1">
+            <span class="balance-label">Saldo disponível</span>
+            <span class="balance-value">{{ usage.balanceUsd | currency: 'USD' }}</span>
+          </div>
+          <p class="section-subtitle">Total já consumido: {{ usage.totalSpentUsd | currency: 'USD' }}</p>
+        }
+
+        <div class="field">
+          <label>Adicionar créditos (USD)</label>
+          <input type="number" min="1" step="1" [(ngModel)]="topUpAmount" />
+        </div>
+        <button class="btn-primary" (click)="addCredits()" [disabled]="addingCredits()">
+          {{ addingCredits() ? 'Adicionando...' : 'Adicionar créditos' }}
+        </button>
+      </section>
+
+      <section class="settings-card">
+        <h2>Histórico de uso</h2>
+
+        @if (aiUsage(); as usage) {
+          <table class="team-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Tokens (entrada / saída)</th>
+                <th>Custo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of usage.recentUsage; track log.createdAtUtc) {
+                <tr>
+                  <td>{{ log.createdAtUtc | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ log.inputTokens }} / {{ log.outputTokens }}</td>
+                  <td>{{ log.costUsd | currency: 'USD' : 'symbol' : '1.4-4' }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="3">Nenhum uso registrado ainda.</td></tr>
+              }
+            </tbody>
+          </table>
+        }
       </section>
     </div>
   }
@@ -227,6 +316,33 @@
         <button class="btn-ghost" (click)="closeInviteForm()">Cancelar</button>
         <button class="btn-primary" (click)="inviteMember()" [disabled]="inviting()">
           {{ inviting() ? 'Adicionando...' : 'Adicionar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showAnthropicKeyForm()) {
+  <div class="modal-backdrop" (click)="cancelAnthropicKeyForm()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>{{ anthropicHasKey() ? 'Trocar' : 'Cadastrar' }} chave da Anthropic</h3>
+      <p class="modal-subtitle">
+        A chave fica criptografada. Depois de salva, não é possível ver ela de novo — só trocar.
+      </p>
+
+      @if (anthropicKeyMessage(); as msg) {
+        <div class="message-banner" [class.error]="msg.type === 'error'">{{ msg.text }}</div>
+      }
+
+      <div class="field">
+        <label>Chave de API</label>
+        <input type="text" [(ngModel)]="anthropicKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="cancelAnthropicKeyForm()">Cancelar</button>
+        <button class="btn-primary" (click)="saveAnthropicKey()" [disabled]="savingAnthropicKey()">
+          {{ savingAnthropicKey() ? 'Salvando...' : 'Salvar chave' }}
         </button>
       </div>
     </div>

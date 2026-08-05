@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WhatsappCrmIA.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using WhatsappCrmIA.Infrastructure.Persistence;
 namespace WhatsappCrmIA.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805164852_AddAiCreditsSystem")]
+    partial class AddAiCreditsSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,12 +33,6 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
 
                     b.Property<string>("AgentName")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("AnthropicApiKeyEncrypted")
-                        .HasColumnType("text");
-
-                    b.Property<string>("AnthropicApiKeyPreview")
                         .HasColumnType("text");
 
                     b.Property<bool>("AutoReplyEnabled")

@@ -297,64 +297,76 @@ public class ProcessIncomingMessageHandler
         Guid tenantId, Contact contact, WhatsAppConnection connection,
         AppointmentToolRequest toolRequest, CancellationToken ct)
     {
-        if (toolRequest.ScheduledForUtc <= DateTime.UtcNow)
-            return (false, "Erro: essa data/hora já passou. Peça pro cliente confirmar uma data futura.");
-
-        // Checa se já não tem outro agendamento marcado muito perto desse horário
-        // (mesma empresa, qualquer contato) — evita dois compromissos conflitando.
-        var conflictWindow = TimeSpan.FromMinutes(30);
-        var hasConflict = await _db.Appointments
-            .IgnoreQueryFilters()
-            .AnyAsync(a => a.TenantId == tenantId
-                        && a.Status != AppointmentStatus.Cancelled
-                        && a.Status != AppointmentStatus.Completed
-                        && a.ScheduledForUtc > toolRequest.ScheduledForUtc - conflictWindow
-                        && a.ScheduledForUtc < toolRequest.ScheduledForUtc + conflictWindow, ct);
-
-        if (hasConflict)
+        try
         {
-            return (false,
-                $"Erro: já existe outro agendamento marcado perto de {toolRequest.ScheduledForUtc:dd/MM HH:mm}. " +
-                "Peça pro cliente escolher outro horário (pelo menos 30 minutos de diferença) e ofereça alternativas próximas.");
-        }
+            if (toolRequest.ScheduledForUtc <= DateTime.UtcNow)
+                return (false, "Erro: essa data/hora já passou. Peça pro cliente confirmar uma data futura.");
 
-        var appointment = new Appointment
-        {
-            TenantId = tenantId,
-            ContactId = contact.Id,
-            WhatsAppConnectionId = connection.Id,
-            Title = toolRequest.Title,
-            ScheduledForUtc = toolRequest.ScheduledForUtc,
-            Notes = toolRequest.Notes,
-            Status = AppointmentStatus.Scheduled
-        };
-        _db.Appointments.Add(appointment);
+            // Checa se já não tem outro agendamento marcado muito perto desse horário
+            // (mesma empresa, qualquer contato) — evita dois compromissos conflitando.
+            var conflictWindow = TimeSpan.FromMinutes(30);
+            var hasConflict = await _db.Appointments
+                .IgnoreQueryFilters()
+                .AnyAsync(a => a.TenantId == tenantId
+                            && a.Status != AppointmentStatus.Cancelled
+                            && a.Status != AppointmentStatus.Completed
+                            && a.ScheduledForUtc > toolRequest.ScheduledForUtc - conflictWindow
+                            && a.ScheduledForUtc < toolRequest.ScheduledForUtc + conflictWindow, ct);
 
-        foreach (var minutesBefore in DefaultReminderOffsetMinutes)
-        {
-            var sendAt = toolRequest.ScheduledForUtc.AddMinutes(-minutesBefore);
-            if (sendAt <= DateTime.UtcNow) continue;
+            if (hasConflict)
+            {
+                return (false,
+                    $"Erro: já existe outro agendamento marcado perto de {toolRequest.ScheduledForUtc:dd/MM HH:mm}. " +
+                    "Peça pro cliente escolher outro horário (pelo menos 30 minutos de diferença) e ofereça alternativas próximas.");
+            }
 
-            var reminder = new Reminder
+            var appointment = new Appointment
             {
                 TenantId = tenantId,
-                Appointment = appointment,
-                SendAtUtc = sendAt,
-                Channel = ReminderChannel.WhatsApp,
-                Status = ReminderStatus.Pending,
-                MessageTemplate = "Olá {nome}! Passando para lembrar do seu compromisso \"{titulo}\" em {data} às {hora}. Até lá!"
+                ContactId = contact.Id,
+                WhatsAppConnectionId = connection.Id,
+                Title = toolRequest.Title,
+                ScheduledForUtc = toolRequest.ScheduledForUtc,
+                Notes = toolRequest.Notes,
+                Status = AppointmentStatus.Scheduled
             };
-            reminder.HangfireJobId = _reminderScheduler.Schedule(reminder.Id, sendAt);
-            _db.Reminders.Add(reminder);
+            _db.Appointments.Add(appointment);
+
+            foreach (var minutesBefore in DefaultReminderOffsetMinutes)
+            {
+                var sendAt = toolRequest.ScheduledForUtc.AddMinutes(-minutesBefore);
+                if (sendAt <= DateTime.UtcNow) continue;
+
+                var reminder = new Reminder
+                {
+                    TenantId = tenantId,
+                    Appointment = appointment,
+                    SendAtUtc = sendAt,
+                    Channel = ReminderChannel.WhatsApp,
+                    Status = ReminderStatus.Pending,
+                    MessageTemplate = "Olá {nome}! Passando para lembrar do seu compromisso \"{titulo}\" em {data} às {hora}. Até lá!"
+                };
+                reminder.HangfireJobId = _reminderScheduler.Schedule(reminder.Id, sendAt);
+                _db.Reminders.Add(reminder);
+            }
+
+            // Salva já aqui pra garantir que o agendamento existe mesmo que o
+            // resto do fluxo (resposta da IA, envio da mensagem) falhe depois.
+            await _db.SaveChangesAsync(ct);
+
+            return (true,
+                $"Agendamento \"{toolRequest.Title}\" criado com sucesso para " +
+                $"{toolRequest.ScheduledForUtc:dd/MM/yyyy} às {toolRequest.ScheduledForUtc:HH:mm}.");
         }
-
-        // Salva já aqui pra garantir que o agendamento existe mesmo que o
-        // resto do fluxo (resposta da IA, envio da mensagem) falhe depois.
-        await _db.SaveChangesAsync(ct);
-
-        return (true,
-            $"Agendamento \"{toolRequest.Title}\" criado com sucesso para " +
-            $"{toolRequest.ScheduledForUtc:dd/MM/yyyy} às {toolRequest.ScheduledForUtc:HH:mm}.");
+        catch (Exception ex)
+        {
+            // IMPORTANTE: sem esse log, esse erro ficava mudo — só aparecia
+            // disfarçado numa resposta genérica da IA pro cliente.
+            _logger.LogError(ex,
+                "Falha ao criar agendamento via IA. Tenant={TenantId} Título={Titulo} ScheduledForUtc={ScheduledFor}",
+                tenantId, toolRequest.Title, toolRequest.ScheduledForUtc);
+            return (false, "Erro interno ao tentar criar o agendamento. Avise o cliente que um atendente vai confirmar manualmente.");
+        }
     }
 
     private async Task SendFallbackMessageAsync(

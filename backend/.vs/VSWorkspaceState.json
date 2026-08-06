@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\WhatsappCrmIA.Api",
+    "\\src\\WhatsappCrmIA.Application",
+    "\\src\\WhatsappCrmIA.Domain",
+    "\\src\\WhatsappCrmIA.Domain\\obj",
+    "\\src\\WhatsappCrmIA.Domain\\obj\\Debug",
+    "\\src\\WhatsappCrmIA.Domain\\obj\\Debug\\net8.0",
+    "\\src\\WhatsappCrmIA.Infrastructure",
+    "\\src\\WhatsappCrmIA.Infrastructure\\Services"
+  ],
+  "SelectedNode": "\\src\\WhatsappCrmIA.Infrastructure\\Services\\ClaudeAiAgentService.cs",
+  "PreviewInSolutionExplorer": false
+}

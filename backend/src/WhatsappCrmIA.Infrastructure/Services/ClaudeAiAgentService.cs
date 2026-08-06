@@ -141,7 +141,9 @@ public class ClaudeAiAgentService : IAiAgentService
                 }
                 else
                 {
-                    var scheduledForUtc = DateTime.SpecifyKind(scheduledForLocal, DateTimeKind.Unspecified) - (currentLocalTime - DateTime.UtcNow);
+                    var scheduledForUtc = DateTime.SpecifyKind(
+                        DateTime.SpecifyKind(scheduledForLocal, DateTimeKind.Unspecified) - (currentLocalTime - DateTime.UtcNow),
+                        DateTimeKind.Utc);
                     var result = await onCreateAppointment(new AppointmentToolRequest(title, scheduledForUtc, notes));
                     createdAppointment = result.Success;
                     toolResultText = result.Message;

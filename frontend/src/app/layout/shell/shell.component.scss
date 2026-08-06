@@ -57,6 +57,19 @@
     }
   }
 
+  .nav-divider {
+    height: 1px;
+    background: var(--ink-800);
+    margin: 10px 4px;
+  }
+
+  .admin-item {
+    color: var(--amber-500, #f59e0b);
+
+    &:hover { color: var(--paper-0); }
+    &.active { background: rgba(245, 158, 11, 0.15); color: var(--amber-500, #f59e0b); }
+  }
+
   .sidebar-footer {
     display: flex;
     align-items: center;

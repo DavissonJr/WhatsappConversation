@@ -1,16 +1,69 @@
-# WhatsApp CRM com IA
+# Zappy CRM — WhatsApp CRM com IA
 
-SaaS para pequenas empresas (clínicas, oficinas, advogados, imobiliárias) não perderem
-clientes: conecta ao WhatsApp, responde automaticamente com IA, cria propostas,
-agenda retornos e envia lembretes.
+SaaS multi-tenant para pequenas empresas (clínicas, oficinas, advocacia, imobiliárias
+e afins) não perderem clientes por demora no WhatsApp: conecta o número da empresa,
+responde automaticamente com IA, agenda retornos e envia lembretes sozinho, gera
+propostas comerciais, e dá visibilidade de tudo isso num dashboard.
 
 ## Stack
 
-- **Backend**: .NET 8, Clean Architecture (Domain / Application / Infrastructure / Api), EF Core + PostgreSQL, MediatR (CQRS), Hangfire (jobs/lembretes), SignalR (tempo real)
-- **Frontend**: Angular 18 (standalone components, Signals)
-- **WhatsApp**: [Evolution API](https://doc.evolution-api.com) (self-hosted, não-oficial — Baileys). Trocar para WhatsApp Cloud API no futuro exige apenas uma nova implementação de `IWhatsAppGateway`, sem tocar no domínio.
-- **IA**: Claude (Anthropic) via `ClaudeAiAgentService`
+- **Backend**: .NET 8, Clean Architecture (Domain / Application / Infrastructure / Api),
+  EF Core + PostgreSQL, MediatR (CQRS), Hangfire (jobs/lembretes), SignalR (tempo real)
+- **Frontend**: Angular 18 (standalone components, Signals), Chart.js (dashboard)
+- **WhatsApp**: [Evolution API](https://doc.evolution-api.com) (self-hosted, não-oficial —
+  Baileys). Trocar para WhatsApp Cloud API no futuro exige só uma nova implementação de
+  `IWhatsAppGateway`, sem tocar no domínio.
+- **IA**: Claude (Anthropic) — **cada tenant usa a própria chave de API**, configurada
+  pelo próprio cliente em Configurações → Agente de IA. O custo da IA nunca sai da sua
+  conta, sai da conta de cada empresa cliente.
 - **Infra**: Docker Compose (Postgres, Redis, Evolution API, API, Frontend)
+
+## O que já está implementado
+
+- **Multi-tenant** de verdade: cada empresa (tenant) tem seus próprios dados, isolados
+  por `TenantId` com query filters automáticos no EF Core
+- **Autenticação** (registro/login com JWT), gestão de equipe (convidar atendentes,
+  ativar/desativar)
+- **Múltiplos números de WhatsApp por empresa**, com QR code, desconectar, remover,
+  e configuração automática de webhook (você não precisa configurar nada manualmente
+  na Evolution API — o sistema faz isso sozinho ao criar o número)
+- **Inbox em tempo real** (SignalR + polling de segurança), com:
+  - Foto de perfil e telefone do contato
+  - Modelos de mensagem reutilizáveis, por escopo (cobrança, lembrete, boas-vindas...)
+  - Iniciar conversa nova com um número que ainda não escreveu
+  - Deletar conversa
+- **IA que realmente age, não só responde**:
+  - Gera resposta automática baseada no histórico da conversa
+  - Pode exigir aprovação humana antes de enviar (configurável) — a sugestão aparece
+    no Inbox com botões de enviar como está / editar / descartar
+  - **Cria agendamentos de verdade** via "tool use" da Anthropic — quando o cliente
+    confirma data e horário na conversa, a IA chama uma ferramenta que cria o
+    `Appointment` no banco, com checagem de conflito de horário e lembretes automáticos
+  - Respeita horário de atendimento configurado (fora do horário, não responde sozinha)
+  - Manda mensagem de fallback configurável quando não consegue responder (sem chave,
+    sem crédito, erro, fora do horário) — o cliente nunca fica sem resposta nenhuma
+- **Agendamentos + lembretes automáticos**: lembretes em minutos customizáveis antes
+  do horário, disparados por jobs do Hangfire mesmo com ninguém no painel
+- **Propostas comerciais geradas por IA**: a partir de uma conversa, gera um rascunho
+  que o atendente revisa, edita e envia pelo WhatsApp
+- **Dashboard** com métricas (contatos, mensagens, conversas, agendamentos, propostas,
+  uso de IA) e gráficos (Chart.js)
+- **Painel administrativo da plataforma** (`/admin`) — só visível pra quem administra
+  o SaaS, não pros clientes: lista todas as empresas cadastradas com métricas agregadas,
+  permite suspender/reativar uma empresa
+- **Modo escuro**, **totalmente responsivo** (sidebar vira menu hambúrguer e o Inbox
+  vira tela cheia no celular), **loading global** que bloqueia ações duplicadas
+  durante requisições, sistema de **toast** pra feedback
+- Segredos sensíveis (chave da Anthropic de cada tenant) são **criptografados** no
+  banco via Data Protection do ASP.NET Core, nunca ficam em texto puro
+
+## O que ainda não existe
+
+- **Cobrança do próprio SaaS**: hoje todo tenant nasce como "Trial" pra sempre — não
+  tem Stripe/Mercado Pago integrado ainda pra você cobrar dos seus clientes
+- **Testes automatizados**
+- **HTTPS/segurança de produção**: segredos de exemplo, sem rate limiting
+- Fuso horário do tenant é fixo em `America/Sao_Paulo` — não tem tela pra trocar ainda
 
 ## Estrutura
 
@@ -21,129 +74,154 @@ whatsapp-crm-ia/
 │   └── src/
 │       ├── WhatsappCrmIA.Domain/          # entidades e enums, sem dependências externas
 │       ├── WhatsappCrmIA.Application/     # casos de uso (MediatR), interfaces
-│       ├── WhatsappCrmIA.Infrastructure/  # EF Core, Evolution API, Claude
-│       └── WhatsappCrmIA.Api/             # controllers, Program.cs, Dockerfile
-├── frontend/                               # Angular 18 (Inbox, etc.)
+│       ├── WhatsappCrmIA.Infrastructure/  # EF Core, Evolution API, Claude, Hangfire
+│       └── WhatsappCrmIA.Api/             # controllers, Program.cs, SignalR hub
+├── frontend/                               # Angular 18 (Dashboard, Inbox, Admin, etc.)
+├── infra/postgres-init/                    # script que cria o banco da Evolution API
 ├── docker-compose.yml
 └── .env.example
 ```
 
-## Como rodar localmente
+## Como rodar do zero
 
 ### 1. Pré-requisitos
 - .NET 8 SDK
 - Node.js 20+
-- Docker e Docker Compose
+- Docker Desktop
 
-### 2. Configurar variáveis de ambiente
+No Windows, depois de instalar o `dotnet-ef` (`dotnet tool install --global dotnet-ef
+--version 8.0.8`) e o Docker, adicione ao PATH (via "Editar variáveis de ambiente do
+sistema", não via `setx` no terminal — trunca em 1024 caracteres e pode corromper o PATH):
+```
+C:\Users\<voce>\.dotnet\tools
+C:\Users\<voce>\AppData\Local\Programs\DockerDesktop\resources\bin
+```
+
+### 2. Variáveis de ambiente
+
 ```bash
 cp .env.example .env
-# preencha ANTHROPIC_API_KEY e EVOLUTION_API_KEY
 ```
 
-### 3. Subir a stack completa
-```bash
-docker compose up --build
-```
-- API: http://localhost:5000/swagger
-- Frontend: http://localhost:4200
-- Evolution API: http://localhost:8081
-- Hangfire dashboard: http://localhost:5000/jobs
+Hoje o `.env` só precisa mesmo existir (pode ficar vazio) — a chave da Anthropic
+**não é mais global**, cada empresa cadastra a própria pela tela de Configurações.
 
-### 4. Gerar a migration do EF Core (schema mudou — recomeçar do zero)
-
-Como o schema mudou bastante nesta versão (usuários, múltiplos números de WhatsApp,
-modelos de mensagem), a forma mais simples é apagar qualquer migration antiga e o
-volume do Postgres, e recomeçar do zero:
+### 3. Gerar e aplicar as migrations
 
 ```bash
 cd backend
-rm -rf src/WhatsappCrmIA.Infrastructure/Migrations   # se você já tinha gerado antes
+dotnet tool install --global dotnet-ef --version 8.0.8
+dotnet restore
 dotnet ef migrations add InitialCreate \
   --project src/WhatsappCrmIA.Infrastructure \
   --startup-project src/WhatsappCrmIA.Api
 ```
 
-No Windows/PowerShell (uma linha só, sem `\`):
+No Windows/PowerShell, sempre em uma linha só (sem `\` no final):
 ```powershell
 dotnet ef migrations add InitialCreate --project src/WhatsappCrmIA.Infrastructure --startup-project src/WhatsappCrmIA.Api
 ```
 
-### 5. Subir a stack (resete o volume do Postgres se já tinha subido antes)
+### 4. Subir a stack
+
 ```bash
-docker compose down -v
+cd ..
 docker compose up --build
 ```
 
-### 6. Aplicar a migration no banco
+### 5. Aplicar a migration no banco
+
+```powershell
+cd backend
+dotnet ef database update --project src/WhatsappCrmIA.Infrastructure --startup-project src/WhatsappCrmIA.Api --connection "Host=localhost;Port=5432;Database=whatsappcrmia;Username=postgres;Password=postgres"
+```
+
+### 6. Criar sua conta
+
+Abra **http://localhost:4200/register**, cadastre sua empresa. Você cai direto no
+Dashboard, autenticado.
+
+### 7. Conectar um número de WhatsApp
+
+Tela **Números WhatsApp** → "Conectar número" → escaneia o QR code. O webhook é
+configurado automaticamente, não precisa fazer nada manual na Evolution API.
+
+### 8. Configurar a IA
+
+Tela **Configurações → Agente de IA** → cadastra sua chave da Anthropic (pega em
+https://console.anthropic.com) → ajusta o `system prompt`, horário de atendimento,
+e se quer aprovação humana antes de enviar.
+
+## Serviços e URLs
+
+| Serviço | URL |
+|---|---|
+| Frontend (Angular) | http://localhost:4200 |
+| API (Swagger) | http://localhost:5000/swagger |
+| Evolution API | http://localhost:8081 |
+| Painel de jobs (Hangfire) | http://localhost:5000/jobs |
+
+## Virando admin da plataforma (você, não seus clientes)
+
+O painel `/admin` (lista todas as empresas cadastradas) só é visível pra quem tem a
+flag `IsPlatformAdmin = true` no próprio usuário — não tem como ativar isso pela
+interface por segurança, é ligado direto no banco.
+
+**No PowerShell** (o `UPDATE` com aspas aninhadas quebra se você tentar com `-c`
+direto — use um here-string em vez disso):
+```powershell
+$sql = @'
+UPDATE "Users" SET "IsPlatformAdmin" = true WHERE "Email" = 'seu-email@aqui.com';
+'@
+$sql | docker compose exec -T postgres psql -U postgres -d whatsappcrmia
+```
+
+**No Linux/Mac** (bash), o `-c` direto funciona normalmente:
 ```bash
-dotnet ef database update \
-  --project src/WhatsappCrmIA.Infrastructure \
-  --startup-project src/WhatsappCrmIA.Api \
-  --connection "Host=localhost;Port=5432;Database=whatsappcrmia;Username=postgres;Password=postgres"
+docker compose exec postgres psql -U postgres -d whatsappcrmia -c "UPDATE \"Users\" SET \"IsPlatformAdmin\" = true WHERE \"Email\" = 'seu-email@aqui.com';"
 ```
 
-### 7. Criar sua conta
-Abra http://localhost:4200/register e crie sua empresa (isso já cria o tenant, o
-usuário owner e uma config padrão de IA). Depois disso você é redirecionado
-direto para o Inbox, já autenticado.
+Depois disso, **deslogue e logue de novo** (o JWT precisa ser gerado de novo pra
+carregar a claim nova) — o item "Admin" aparece na sidebar, com destaque em laranja.
 
-### 8. Conectar um número de WhatsApp
-Na tela **Números WhatsApp** do painel, clique em "Conectar número", dê um nome
-(ex: "Recepção") e escaneie o QR code que aparece. Depois de conectado, configure
-o webhook da instância na Evolution API para apontar para:
-```
-http://<seu-host>:5000/webhook/evolution/{tenantId}/{instanceName}
-```
-(o `tenantId` e `instanceName` você pode conferir no Swagger ou no banco por enquanto —
-uma tela para copiar isso automaticamente é um próximo passo natural).
+## Toda vez que mudar uma entidade (schema novo)
 
-## Fluxo principal (já implementado no backend)
+```powershell
+cd backend
+$env:PATH += ";C:\Users\<voce>\.dotnet\tools"   # se ainda não estiver no PATH
+dotnet ef migrations add NomeDaMudanca --project src/WhatsappCrmIA.Infrastructure --startup-project src/WhatsappCrmIA.Api
+cd ..
+docker compose up --build
+cd backend
+dotnet ef database update --project src/WhatsappCrmIA.Infrastructure --startup-project src/WhatsappCrmIA.Api --connection "Host=localhost;Port=5432;Database=whatsappcrmia;Username=postgres;Password=postgres"
+```
 
-```
-Cliente manda mensagem no WhatsApp
-        │
-        ▼
-Evolution API dispara webhook → WebhookController
-        │
-        ▼
-ProcessIncomingMessageCommand (MediatR)
-   ├─ salva Contact/Conversation/Message
-   ├─ chama Claude (system prompt do tenant) → resposta + intenção detectada
-   ├─ se precisar aprovação humana → status WaitingHuman, para aqui
-   └─ senão → envia resposta via Evolution API + salva Message outbound
-```
+## Arquitetura — decisões importantes
+
+- **Multi-tenancy**: via `TenantId` em cada linha + *global query filter* no EF Core
+  (`AppDbContext.OnModelCreating`). O webhook do WhatsApp e os jobs do Hangfire rodam
+  **sem usuário autenticado**, então usam `.IgnoreQueryFilters()` explicitamente nas
+  consultas onde o `TenantId` já vem validado por outra via (URL do webhook, ou o
+  próprio registro do Reminder/Appointment). O painel `/admin` também usa
+  `.IgnoreQueryFilters()` de propósito, protegido pela policy `PlatformAdmin`.
+- **Trocar Evolution API pela Cloud API oficial**: implemente `WhatsAppCloudApiGateway
+  : IWhatsAppGateway` e troque o registro no `Program.cs` — nada no domínio muda.
+- **Trocar Claude por outro LLM**: mesma lógica, nova classe implementando
+  `IAiAgentService`.
+- **Chave da Anthropic por tenant**: criptografada via Data Protection do ASP.NET Core,
+  persistida num volume Docker (`dataprotection_keys`) — se esse volume for perdido,
+  todas as chaves salvas ficam ilegíveis e cada tenant precisa recadastrar a própria.
+- **Créditos de IA**: não existe controle interno de saldo — cada tenant paga direto
+  na própria conta da Anthropic. O que o sistema mostra em Configurações → Créditos de
+  IA é só um relatório de uso (tokens/custo estimado), não um saldo controlado por nós.
 
 ## Roadmap sugerido (próximos passos)
 
-Já implementado nesta versão: autenticação (registro/login com JWT), múltiplos
-números de WhatsApp por tenant, modelos de mensagem por escopo, CRUD de conversas.
-
-1. **Configurar webhook automaticamente** — hoje o `tenantId`/`instanceName` do
-   webhook precisam ser copiados manualmente; o backend pode configurar isso
-   sozinho ao criar a conexão (chamando a Evolution API para setar o webhook URL)
-2. **Usar os modelos de mensagem no Inbox** — botão de "inserir modelo" na caixa
-   de resposta do atendente, com substituição de variáveis (`{nome}`, etc.)
-3. **Propostas**: endpoint que aciona `IAiAgentService.GenerateProposalDraftAsync`
-   e tela de revisão/envio
-4. **Agendamentos + lembretes**: criar `Appointment`, agendar `Reminder` como job
-   Hangfire que dispara `IWhatsAppGateway.SendTextMessageAsync` na hora certa,
-   podendo usar um `MessageTemplate` do escopo "Lembrete"
-5. **Billing**: integração com Stripe ou Mercado Pago, limites por `PlanTier`
-6. **Tela de configuração do agente de IA** (editar o `SystemPrompt`, ativar/desativar
-   auto-resposta, ativar aprovação humana) — hoje só existe um valor padrão criado no registro
-7. **SignalR** no Inbox para mensagens chegarem em tempo real, sem precisar recarregar
-
-## Segurança — antes de ir para produção
-
-- Troque `Jwt:Secret` no `appsettings.json` por um valor forte e único (hoje está
-  com um placeholder visível)
-- O `AUTHENTICATION_API_KEY` da Evolution API também está com valor placeholder —
-  troque no `docker-compose.yml`
-- Ative HTTPS e configure `Cors:AllowedOrigin` para o domínio real
-
-## Notas de arquitetura
-
-- **Multi-tenancy**: hoje via `TenantId` em cada linha + *global query filter* no EF Core (`AppDbContext.OnModelCreating`). Simples de implementar e suficiente até uma escala considerável; migrar para schema-per-tenant só se necessário.
-- **Trocar Evolution API pela Cloud API oficial**: implemente uma nova classe `WhatsAppCloudApiGateway : IWhatsAppGateway` e troque o registro no `Program.cs` — nada no domínio ou nos casos de uso muda.
-- **Trocar Claude por outro LLM**: mesma lógica, nova classe implementando `IAiAgentService`.
+1. **Cobrança do SaaS**: planos, limites por plano, Stripe ou Mercado Pago
+2. **Segurança pra produção**: segredos fortes gerados de verdade, HTTPS, rate limiting
+   no login/registro/webhook
+3. **Testes automatizados**, principalmente nos fluxos críticos (webhook, envio de
+   mensagem, auth, tool use da IA)
+4. **Fuso horário configurável por tenant** (hoje fixo em América/São Paulo)
+5. **Página de boas-vindas guiada** logo após o cadastro (hoje só tem o checklist de
+   primeiros passos dentro do Inbox)

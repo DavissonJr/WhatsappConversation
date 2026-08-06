@@ -13,3 +13,7 @@ frontend/.angular/
 
 # OS
 .DS_Store
+
+# Visual Studio (cache local, nunca deve ir pro repositório)
+backend/.vs/
+**/.vs/

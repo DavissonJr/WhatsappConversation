@@ -28,6 +28,10 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResult>
         if (user is null || !user.IsActive || !_passwordHasher.Verify(request.Password, user.PasswordHash))
             return new AuthResult(false, null, "E-mail ou senha inválidos.");
 
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == user.TenantId, ct);
+        if (tenant is null || !tenant.IsActive)
+            return new AuthResult(false, null, "Essa conta está temporariamente desativada. Fale com o suporte.");
+
         var token = _jwtTokenService.GenerateToken(user, user.TenantId);
         return new AuthResult(true, token, null);
     }

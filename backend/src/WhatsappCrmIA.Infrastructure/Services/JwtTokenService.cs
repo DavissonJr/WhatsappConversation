@@ -27,6 +27,7 @@ public class JwtTokenService : IJwtTokenService
             new Claim("name", user.FullName),
             new Claim("tenant_id", tenantId.ToString()),
             new Claim("role", user.Role.ToString()),
+            new Claim("platform_admin", user.IsPlatformAdmin ? "true" : "false"),
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));

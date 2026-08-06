@@ -94,7 +94,10 @@ builder.Services
             }
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("PlatformAdmin", policy => policy.RequireClaim("platform_admin", "true"));
+});
 
 // ---- CORS para o Angular ----
 builder.Services.AddCors(options =>

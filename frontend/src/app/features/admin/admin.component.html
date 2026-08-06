@@ -1,0 +1,88 @@
+<div class="page admin-page">
+  <header class="page-header">
+    <div>
+      <h1>Painel administrativo</h1>
+      <p>Visão geral de todas as empresas cadastradas no SaaS.</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <p class="empty-state">Carregando...</p>
+  } @else {
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-value">{{ tenants().length }}</span>
+        <span class="metric-label">Empresas cadastradas</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ activeCount() }}</span>
+        <span class="metric-label">Ativas</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ totalContacts() }}</span>
+        <span class="metric-label">Contatos (todas as empresas)</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ totalAiCost() | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+        <span class="metric-label">Custo estimado de IA (todas)</span>
+      </div>
+    </div>
+
+    <div class="tenants-table-wrapper">
+      <table class="tenants-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Segmento</th>
+            <th>Dono</th>
+            <th>Status</th>
+            <th>Números</th>
+            <th>Contatos</th>
+            <th>Conversas</th>
+            <th>Mensagens</th>
+            <th>Agend.</th>
+            <th>Propostas</th>
+            <th>Custo IA</th>
+            <th>Última atividade</th>
+            <th>Cadastro</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of tenants(); track t.id) {
+            <tr [class.inactive]="!t.isActive">
+              <td class="tenant-name">{{ t.name }}</td>
+              <td>{{ t.segment }}</td>
+              <td>
+                <div class="owner-cell">
+                  <span>{{ t.ownerName || '—' }}</span>
+                  <span class="owner-email">{{ t.ownerEmail }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="status-dot" [class.active]="t.isActive"></span>
+                {{ t.isActive ? 'Ativa' : 'Suspensa' }}
+              </td>
+              <td>{{ t.connectedWhatsAppCount }}/{{ t.whatsAppConnectionCount }}</td>
+              <td>{{ t.contactCount }}</td>
+              <td>{{ t.conversationCount }}</td>
+              <td>{{ t.messageCount }}</td>
+              <td>{{ t.appointmentCount }}</td>
+              <td>{{ t.proposalCount }}</td>
+              <td>{{ t.totalAiEstimatedCostUsd | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              <td>{{ t.lastActivityUtc ? (t.lastActivityUtc | date: 'dd/MM/yy HH:mm') : '—' }}</td>
+              <td>{{ t.createdAtUtc | date: 'dd/MM/yy' }}</td>
+              <td>
+                <button class="btn-ghost" (click)="toggleActive(t)">
+                  {{ t.isActive ? 'Suspender' : 'Reativar' }}
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="14">Nenhuma empresa cadastrada ainda.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

@@ -1,0 +1,111 @@
+@use '../../shared/page.scss';
+
+.admin-page {
+  max-width: none;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tenants-table-wrapper {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
+}
+
+.tenants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+
+  th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+
+  tr.inactive {
+    opacity: 0.55;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.tenant-name {
+  font-weight: 700;
+}
+
+.owner-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  .owner-email {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rose-500);
+  margin-right: 6px;
+
+  &.active { background: var(--signal-500); }
+}
+
+.btn-ghost {
+  padding: 6px 12px;
+  background: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: var(--bg-surface-hover); }
+}

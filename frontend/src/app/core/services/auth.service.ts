@@ -26,6 +26,7 @@ interface DecodedToken {
   email?: string;
   tenant_id?: string;
   role?: string;
+  platform_admin?: string;
   exp?: number;
 }
 
@@ -39,6 +40,7 @@ export class AuthService {
 
   currentUserName = signal<string | null>(null);
   isAuthenticated = signal<boolean>(false);
+  isPlatformAdmin = signal<boolean>(false);
 
   constructor() {
     this.hydrateFromStorage();
@@ -60,6 +62,7 @@ export class AuthService {
     localStorage.removeItem(TOKEN_KEY);
     this.isAuthenticated.set(false);
     this.currentUserName.set(null);
+    this.isPlatformAdmin.set(false);
     this.router.navigate(['/login']);
   }
 
@@ -88,6 +91,7 @@ export class AuthService {
 
     this.currentUserName.set(decoded.name ?? decoded.email ?? 'Usuário');
     this.isAuthenticated.set(true);
+    this.isPlatformAdmin.set(decoded.platform_admin === 'true');
   }
 
   private decode(token: string): DecodedToken | null {

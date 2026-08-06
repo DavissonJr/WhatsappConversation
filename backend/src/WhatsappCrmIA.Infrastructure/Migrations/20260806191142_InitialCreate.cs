@@ -12,6 +12,24 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "AiUsageLogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ConversationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    InputTokens = table.Column<int>(type: "integer", nullable: false),
+                    OutputTokens = table.Column<int>(type: "integer", nullable: false),
+                    CostUsd = table.Column<decimal>(type: "numeric", nullable: false),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AiUsageLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Contacts",
                 columns: table => new
                 {
@@ -20,6 +38,7 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     Notes = table.Column<string>(type: "text", nullable: true),
                     IsBlocked = table.Column<bool>(type: "boolean", nullable: false),
+                    ProfilePictureUrl = table.Column<string>(type: "text", nullable: true),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
@@ -56,7 +75,9 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     Segment = table.Column<string>(type: "text", nullable: false),
                     Plan = table.Column<int>(type: "integer", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AiCreditsBalanceUsd = table.Column<decimal>(type: "numeric", nullable: false),
+                    TimeZoneId = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -73,6 +94,7 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     FullName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Role = table.Column<int>(type: "integer", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    IsPlatformAdmin = table.Column<bool>(type: "boolean", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
@@ -83,39 +105,14 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Appointments",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ContactId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "text", nullable: false),
-                    ScheduledForUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    Notes = table.Column<string>(type: "text", nullable: true),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Appointments", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Appointments_Contacts_ContactId",
-                        column: x => x.ContactId,
-                        principalTable: "Contacts",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Proposals",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ContactId = table.Column<Guid>(type: "uuid", nullable: false),
                     ConversationId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Title = table.Column<string>(type: "text", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: false),
+                    Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: false),
                     Value = table.Column<decimal>(type: "numeric(18,2)", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     AiGenerated = table.Column<bool>(type: "boolean", nullable: false),
@@ -133,7 +130,7 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         column: x => x.ContactId,
                         principalTable: "Contacts",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -147,6 +144,8 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     RequireHumanApproval = table.Column<bool>(type: "boolean", nullable: false),
                     BusinessHours = table.Column<string>(type: "text", nullable: false),
                     FallbackMessage = table.Column<string>(type: "text", nullable: true),
+                    AnthropicApiKeyEncrypted = table.Column<string>(type: "text", nullable: true),
+                    AnthropicApiKeyPreview = table.Column<string>(type: "text", nullable: true),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
@@ -189,6 +188,70 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Appointments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContactId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WhatsAppConnectionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    ScheduledForUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    Notes = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Appointments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Appointments_Contacts_ContactId",
+                        column: x => x.ContactId,
+                        principalTable: "Contacts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Appointments_WhatsAppConnections_WhatsAppConnectionId",
+                        column: x => x.WhatsAppConnectionId,
+                        principalTable: "WhatsAppConnections",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Conversations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContactId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WhatsAppConnectionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    LastDetectedIntent = table.Column<int>(type: "integer", nullable: false),
+                    LastMessageAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    PendingAiSuggestion = table.Column<string>(type: "text", nullable: true),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Conversations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Conversations_Contacts_ContactId",
+                        column: x => x.ContactId,
+                        principalTable: "Contacts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Conversations_WhatsAppConnections_WhatsAppConnectionId",
+                        column: x => x.WhatsAppConnectionId,
+                        principalTable: "WhatsAppConnections",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Reminders",
                 columns: table => new
                 {
@@ -212,37 +275,6 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         principalTable: "Appointments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Conversations",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ContactId = table.Column<Guid>(type: "uuid", nullable: false),
-                    WhatsAppConnectionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    LastDetectedIntent = table.Column<int>(type: "integer", nullable: false),
-                    LastMessageAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Conversations", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Conversations_Contacts_ContactId",
-                        column: x => x.ContactId,
-                        principalTable: "Contacts",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Conversations_WhatsAppConnections_WhatsAppConnectionId",
-                        column: x => x.WhatsAppConnectionId,
-                        principalTable: "WhatsAppConnections",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -281,6 +313,11 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 name: "IX_Appointments_ContactId",
                 table: "Appointments",
                 column: "ContactId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Appointments_WhatsAppConnectionId",
+                table: "Appointments",
+                column: "WhatsAppConnectionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Contacts_TenantId_PhoneNumber",
@@ -338,6 +375,9 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 name: "AiAgentConfigs");
 
             migrationBuilder.DropTable(
+                name: "AiUsageLogs");
+
+            migrationBuilder.DropTable(
                 name: "Messages");
 
             migrationBuilder.DropTable(
@@ -359,10 +399,10 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                 name: "Appointments");
 
             migrationBuilder.DropTable(
-                name: "WhatsAppConnections");
+                name: "Contacts");
 
             migrationBuilder.DropTable(
-                name: "Contacts");
+                name: "WhatsAppConnections");
 
             migrationBuilder.DropTable(
                 name: "Tenants");

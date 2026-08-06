@@ -12,8 +12,8 @@ using WhatsappCrmIA.Infrastructure.Persistence;
 namespace WhatsappCrmIA.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260805164852_AddAiCreditsSystem")]
-    partial class AddAiCreditsSystem
+    [Migration("20260806191142_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,6 +33,12 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
 
                     b.Property<string>("AgentName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AnthropicApiKeyEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AnthropicApiKeyPreview")
                         .HasColumnType("text");
 
                     b.Property<bool>("AutoReplyEnabled")
@@ -132,9 +138,14 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("WhatsAppConnectionId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ContactId");
+
+                    b.HasIndex("WhatsAppConnectionId");
 
                     b.ToTable("Appointments");
                 });
@@ -320,7 +331,8 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -336,7 +348,8 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -418,6 +431,10 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Tenants");
@@ -443,6 +460,9 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPlatformAdmin")
                         .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
@@ -528,7 +548,15 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("WhatsappCrmIA.Domain.Entities.WhatsAppConnection", "WhatsAppConnection")
+                        .WithMany()
+                        .HasForeignKey("WhatsAppConnectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Contact");
+
+                    b.Navigation("WhatsAppConnection");
                 });
 
             modelBuilder.Entity("WhatsappCrmIA.Domain.Entities.Conversation", b =>
@@ -566,7 +594,7 @@ namespace WhatsappCrmIA.Infrastructure.Migrations
                     b.HasOne("WhatsappCrmIA.Domain.Entities.Contact", "Contact")
                         .WithMany()
                         .HasForeignKey("ContactId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Contact");

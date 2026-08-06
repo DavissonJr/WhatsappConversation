@@ -27,7 +27,7 @@ export class LoginComponent {
     this.errorMessage.set(null);
 
     this.auth.login({ email: this.email(), password: this.password() }).subscribe({
-      next: () => this.router.navigate(['/inbox']),
+      next: () => this.router.navigate(['/dashboard']),
       error: (err) => {
         this.loading.set(false);
         this.errorMessage.set(err?.error?.message ?? 'Não foi possível entrar. Tente novamente.');

@@ -21,6 +21,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   mobileMenuOpen = signal(false);
 
   navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'M3 3h6v8H3V3Zm8 0h6v5h-6V3ZM3 13h6v4H3v-4Zm8-3h6v7h-6v-7Z' },
     { path: '/inbox', label: 'Conversas', icon: 'M2 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-4 3v-3H4a2 2 0 0 1-2-2V5Z' },
     { path: '/agendamentos', label: 'Agendamentos', icon: 'M5 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Zm11 6H4v8h12V8Z' },
     { path: '/propostas', label: 'Propostas', icon: 'M4 2h9l3 3v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm8 1v3h3l-3-3ZM6 9h8v1.5H6V9Zm0 3h8v1.5H6V12Zm0 3h5v1.5H6V15Z' },

@@ -46,7 +46,7 @@ export class RegisterComponent {
         password: this.password(),
       })
       .subscribe({
-        next: () => this.router.navigate(['/inbox']),
+        next: () => this.router.navigate(['/dashboard']),
         error: (err) => {
           this.loading.set(false);
           this.errorMessage.set(err?.error?.message ?? 'Não foi possível criar sua conta. Tente novamente.');

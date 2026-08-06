@@ -1,0 +1,77 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Visão geral do atendimento, agendamentos e propostas.</p>
+    </div>
+  </header>
+
+  @if (loading) {
+    <p class="empty-state">Carregando...</p>
+  } @else if (data) {
+    <!-- Cartões de métricas -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-value">{{ data.totalContacts }}</span>
+        <span class="metric-label">Contatos totais</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ data.newContactsLast7Days }}</span>
+        <span class="metric-label">Novos contatos (7 dias)</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ data.upcomingAppointmentsCount }}</span>
+        <span class="metric-label">Agendamentos (próx. 7 dias)</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ data.proposalConversionRatePercent }}%</span>
+        <span class="metric-label">Conversão de propostas</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-value">{{ data.aiAutoReplyRatePercent }}%</span>
+        <span class="metric-label">Respostas automáticas da IA</span>
+      </div>
+    </div>
+
+    <!-- Gráficos de tendência -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Novos contatos (14 dias)</h3>
+        <div class="chart-container">
+          <canvas #contactsChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Mensagens por dia (14 dias)</h3>
+        <div class="chart-container">
+          <canvas #messagesChart></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos de distribuição -->
+    <div class="charts-row three">
+      <div class="chart-card">
+        <h3>Conversas</h3>
+        <div class="chart-container small">
+          <canvas #conversationsChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Agendamentos</h3>
+        <div class="chart-container small">
+          <canvas #appointmentsChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Propostas</h3>
+        <div class="chart-container small">
+          <canvas #proposalsChart></canvas>
+        </div>
+      </div>
+    </div>
+  }
+</div>

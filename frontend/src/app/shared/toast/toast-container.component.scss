@@ -2,11 +2,24 @@
   position: fixed;
   top: 20px;
   right: 20px;
+  left: 20px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
   max-width: 380px;
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    max-width: none;
+    align-items: stretch;
+  }
 }
 
 .toast {
@@ -23,9 +36,12 @@
   animation: slide-in 0.2s ease;
 
   .icon {
-    font-size: 14px;
-    font-weight: 700;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding-top: 1px;
+
+    svg { width: 16px; height: 16px; }
   }
 
   .text {

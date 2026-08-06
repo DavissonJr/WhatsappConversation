@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1>Propostas</h1>
-      <p>Geradas pela IA a partir das conversas, ou crie a partir do Inbox (botão 📄 no cabeçalho do chat).</p>
+      <p>Geradas pela IA a partir das conversas, ou crie a partir do ícone de proposta no cabeçalho do chat no Inbox.</p>
     </div>
   </header>
 
@@ -12,7 +12,10 @@
         <div class="proposal-header">
           <span class="status-badge" [attr.data-status]="p.status">{{ statusLabels[p.status] }}</span>
           @if (p.aiGenerated) {
-            <span class="ai-badge">💡 IA</span>
+            <span class="ai-badge">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="11" height="11"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2a5 5 0 0 0-3 9v1.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V11a5 5 0 0 0-3-9ZM8.5 17h3"/></svg>
+              IA
+            </span>
           }
         </div>
 
@@ -40,7 +43,7 @@
       </div>
     } @empty {
       <p class="empty-state">
-        Nenhuma proposta ainda. Abra uma conversa no Inbox e clique no ícone 📄 pra gerar a primeira com IA.
+        Nenhuma proposta ainda. Abra uma conversa no Inbox e clique no ícone de proposta pra gerar a primeira com IA.
       </p>
     }
   </div>

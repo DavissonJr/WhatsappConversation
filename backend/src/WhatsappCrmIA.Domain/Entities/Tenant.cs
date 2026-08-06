@@ -15,6 +15,15 @@ public class Tenant
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
+    public decimal AiCreditsBalanceUsd { get; set; } = 5.00m;
+
+    /// <summary>
+    /// Fuso horário do tenant (formato IANA, ex: "America/Sao_Paulo"), usado
+    /// pra saber se está dentro do horário de atendimento configurado no
+    /// agente de IA. Assume horário de Brasília por padrão.
+    /// </summary>
+    public string TimeZoneId { get; set; } = "America/Sao_Paulo";
+
     // Config do agente de IA para este tenant
     public AiAgentConfig? AiAgentConfig { get; set; }
 

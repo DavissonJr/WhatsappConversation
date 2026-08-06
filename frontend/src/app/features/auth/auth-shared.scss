@@ -85,6 +85,10 @@
   align-items: center;
   justify-content: center;
   padding: 32px;
+
+  @media (max-width: 400px) {
+    padding: 20px;
+  }
 }
 
 .auth-form {

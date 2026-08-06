@@ -159,6 +159,11 @@ export class InboxComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Só usado no mobile — volta pra lista sem perder o que já foi carregado. */
+  backToList(): void {
+    this.selectedConversation.set(null);
+  }
+
   send(): void {
     const conv = this.selectedConversation();
     const text = this.draftMessage().trim();

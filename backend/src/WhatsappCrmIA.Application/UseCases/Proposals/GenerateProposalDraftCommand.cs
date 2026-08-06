@@ -57,6 +57,15 @@ public class GenerateProposalDraftHandler : IRequestHandler<GenerateProposalDraf
         if (history.Count == 0)
             return (null, "Essa conversa ainda não tem mensagens pra basear a proposta.");
 
+        // A API da Anthropic exige que a conversa termine com uma mensagem do
+        // usuário (não aceita "prefill" de assistente nesse tipo de chamada).
+        // Se a última mensagem foi enviada pela empresa, completa com uma
+        // instrução explícita pra IA saber que deve gerar a proposta agora.
+        if (history[^1].role != "user")
+        {
+            history.Add(("user", "Com base em tudo o que conversamos até aqui, gere a proposta comercial."));
+        }
+
         var apiKey = _secretProtector.Decrypt(agentConfig.AnthropicApiKeyEncrypted);
 
         string draftText;

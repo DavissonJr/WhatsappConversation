@@ -36,7 +36,7 @@
 }
 
 .appointment-card {
-  background: var(--paper-0);
+  background: var(--bg-surface);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   box-shadow: var(--shadow-card);
@@ -56,12 +56,12 @@
   align-items: center;
   min-width: 56px;
   padding: 8px;
-  background: var(--paper-50);
+  background: var(--bg-page);
   border-radius: var(--radius-md);
   flex-shrink: 0;
 
-  .appt-date { font-size: 12px; color: var(--ink-400); }
-  .appt-time { font-size: 16px; font-weight: 700; color: var(--ink-900); }
+  .appt-date { font-size: 12px; color: var(--text-secondary); }
+  .appt-time { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 }
 
 .appt-info {
@@ -72,8 +72,8 @@
   min-width: 0;
 
   strong { font-size: 15px; }
-  .appt-contact { font-size: 13px; color: var(--ink-400); }
-  .appt-notes { font-size: 12px; color: var(--ink-400); font-style: italic; }
+  .appt-contact { font-size: 13px; color: var(--text-secondary); }
+  .appt-notes { font-size: 12px; color: var(--text-secondary); font-style: italic; }
 }
 
 .status-badge {
@@ -82,8 +82,8 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  background: var(--paper-50);
-  color: var(--ink-400);
+  background: var(--bg-page);
+  color: var(--text-secondary);
   flex-shrink: 0;
 
   &[data-status='Scheduled'] { background: #dbeafe; color: #1e40af; }
@@ -101,11 +101,14 @@
 }
 
 .reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: var(--paper-50);
-  color: var(--ink-400);
+  background: var(--bg-page);
+  color: var(--text-secondary);
 
   &[data-status='Sent'] { background: var(--signal-100); color: var(--signal-600); }
   &[data-status='Failed'] { background: var(--rose-100); color: #9f1239; }
@@ -116,7 +119,7 @@
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--paper-50);
+  border-top: 1px solid var(--border-color);
 }
 
 .modal-backdrop {
@@ -130,7 +133,7 @@
 }
 
 .modal {
-  background: var(--paper-0);
+  background: var(--bg-surface);
   border-radius: var(--radius-lg);
   padding: 28px;
   width: 100%;
@@ -147,14 +150,14 @@
       display: block;
       font-size: 13px;
       font-weight: 600;
-      color: var(--ink-700);
+      color: var(--text-primary);
       margin-bottom: 6px;
     }
 
     input, select, textarea {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid var(--ink-200);
+      border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
       font-size: 14px;
       font-family: var(--font-body);
@@ -182,9 +185,9 @@
 .reminder-chip-btn {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid var(--ink-200);
-  background: var(--paper-0);
-  color: var(--ink-700);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
 
@@ -207,22 +210,28 @@
 
 .field-hint {
   font-size: 12px;
-  color: var(--ink-400);
+  color: var(--text-secondary);
   margin: 8px 0 0;
 }
 
 .confirm-modal {
-  background: var(--paper-0);
+  background: var(--bg-surface);
   border-radius: var(--radius-lg);
   padding: 24px;
   max-width: 340px;
 
   h3 { font-size: 16px; margin-bottom: 6px; }
-  p { font-size: 13px; color: var(--ink-400); margin: 0 0 20px; }
+  p { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
 
   .modal-actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
   }
+}
+
+/* Responsivo: modal ocupa quase a tela toda no celular, com respiro nas bordas. */
+@media (max-width: 480px) {
+  .modal-backdrop { padding: 16px; }
+  .modal, .confirm-modal { max-width: 100%; width: 100%; max-height: 85vh; overflow-y: auto; }
 }

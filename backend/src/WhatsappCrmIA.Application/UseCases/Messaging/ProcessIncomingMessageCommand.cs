@@ -9,8 +9,8 @@ namespace WhatsappCrmIA.Application.UseCases.Messaging;
 
 /// <summary>
 /// Fluxo central do produto: mensagem chega do webhook da Evolution API,
-/// é persistida, a IA gera (ou sugere) uma resposta, e opcionalmente
-/// já dispara o envio de volta ao contato.
+/// é persistida, a IA gera (ou sugere) uma resposta — podendo até criar um
+/// agendamento de verdade — e opcionalmente já dispara o envio de volta.
 /// </summary>
 public record ProcessIncomingMessageCommand(
     Guid TenantId,
@@ -31,12 +31,17 @@ public class ProcessIncomingMessageHandler
     private const decimal InputCostPerMillionTokens = 3.00m;
     private const decimal OutputCostPerMillionTokens = 15.00m;
 
+    // Lembretes padrão quando a IA cria um agendamento sozinha (sem passar
+    // pela tela de criação manual, onde o atendente escolhe isso).
+    private static readonly int[] DefaultReminderOffsetMinutes = [1440, 180]; // 1 dia e 3h antes
+
     private readonly IApplicationDbContext _db;
     private readonly IAiAgentService _aiAgent;
     private readonly IWhatsAppGateway _whatsApp;
     private readonly ILogger<ProcessIncomingMessageHandler> _logger;
     private readonly INotificationService _notifications;
     private readonly ISecretProtector _secretProtector;
+    private readonly IReminderScheduler _reminderScheduler;
 
     public ProcessIncomingMessageHandler(
         IApplicationDbContext db,
@@ -44,7 +49,8 @@ public class ProcessIncomingMessageHandler
         IWhatsAppGateway whatsApp,
         ILogger<ProcessIncomingMessageHandler> logger,
         INotificationService notifications,
-        ISecretProtector secretProtector)
+        ISecretProtector secretProtector,
+        IReminderScheduler reminderScheduler)
     {
         _db = db;
         _aiAgent = aiAgent;
@@ -52,6 +58,7 @@ public class ProcessIncomingMessageHandler
         _logger = logger;
         _notifications = notifications;
         _secretProtector = secretProtector;
+        _reminderScheduler = reminderScheduler;
     }
 
     public async Task<ProcessIncomingMessageResult> Handle(
@@ -71,9 +78,7 @@ public class ProcessIncomingMessageHandler
         if (whatsappConnection is null)
         {
             _logger.LogWarning(
-                "Mensagem descartada: nenhuma WhatsAppConnection encontrada para tenant={TenantId} instance={InstanceName}. " +
-                "Isso normalmente significa que o número foi deletado/recriado e o webhook antigo ainda está configurado, " +
-                "ou que o instanceName no banco não bate com o da URL do webhook.",
+                "Mensagem descartada: nenhuma WhatsAppConnection encontrada para tenant={TenantId} instance={InstanceName}.",
                 request.TenantId, request.InstanceName);
             return new ProcessIncomingMessageResult(false, null);
         }
@@ -96,21 +101,12 @@ public class ProcessIncomingMessageHandler
             _db.Contacts.Add(contact);
         }
 
-        // Contatos criados antes dessa funcionalidade existir (ou cuja busca anterior
-        // falhou) ainda não têm foto — tenta buscar de novo sempre que estiver faltando.
         if (string.IsNullOrEmpty(contact.ProfilePictureUrl))
         {
             try
             {
                 contact.ProfilePictureUrl = await _whatsApp.GetProfilePictureUrlAsync(
                     whatsappConnection.InstanceName, normalizedPhone, ct);
-
-                if (string.IsNullOrEmpty(contact.ProfilePictureUrl))
-                {
-                    _logger.LogInformation(
-                        "Busca de foto de perfil retornou vazia para {Phone} (pode ser que o contato não tenha foto).",
-                        normalizedPhone);
-                }
             }
             catch (Exception ex)
             {
@@ -141,7 +137,7 @@ public class ProcessIncomingMessageHandler
         }
 
         // 3. Persiste a mensagem recebida
-        var inboundMessage = new Message
+        _db.Messages.Add(new Message
         {
             TenantId = request.TenantId,
             Conversation = conversation,
@@ -149,11 +145,10 @@ public class ProcessIncomingMessageHandler
             Direction = MessageDirection.Inbound,
             SentBy = MessageSender.Contact,
             WhatsAppMessageId = request.WhatsAppMessageId
-        };
-        _db.Messages.Add(inboundMessage);
+        });
         conversation.LastMessageAtUtc = DateTime.UtcNow;
 
-        // 4. Busca config do agente de IA do tenant
+        // 4. Busca config do agente de IA e do tenant
         var agentConfig = await _db.AiAgentConfigs
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.TenantId == request.TenantId, ct);
@@ -161,29 +156,48 @@ public class ProcessIncomingMessageHandler
         if (agentConfig is null || !agentConfig.AutoReplyEnabled)
         {
             await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, null);
+        }
+
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == request.TenantId, ct);
+        var currentLocalTime = GetTenantLocalTime(tenant?.TimeZoneId);
+
+        // 4.4 Fora do horário de atendimento? Não chama a IA (economiza custo e
+        // evita respostas estranhas fora de hora) — só manda a mensagem de
+        // fallback, se configurada, e deixa esperando um humano.
+        if (!string.IsNullOrWhiteSpace(agentConfig.BusinessHours)
+            && !IsWithinBusinessHours(agentConfig.BusinessHours, currentLocalTime))
+        {
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await SendFallbackMessageAsync(agentConfig, whatsappConnection, conversation, request.FromPhoneNumber, ct);
+            await _db.SaveChangesAsync(ct);
             _logger.LogInformation(
-                "Mensagem recebida salva (sem auto-resposta: {Motivo}). Conversa={ConversationId}",
-                agentConfig is null ? "sem AiAgentConfig" : "AutoReplyEnabled=false", conversation.Id);
+                "Mensagem recebida fora do horário de atendimento ({Horario}). Conversa={ConversationId}",
+                agentConfig.BusinessHours, conversation.Id);
             await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, null);
         }
 
         // 4.5 Cada tenant usa a PRÓPRIA chave da Anthropic (custo sai da conta
-        // dele, não da sua). Sem chave configurada, não tem como chamar a IA.
+        // dele, não da sua). Sem chave configurada, não tem como chamar a IA —
+        // mas ainda mandamos a mensagem de fallback pro cliente não ficar mudo.
         if (string.IsNullOrEmpty(agentConfig.AnthropicApiKeyEncrypted))
         {
             conversation.Status = ConversationStatus.WaitingHuman;
+            await SendFallbackMessageAsync(agentConfig, whatsappConnection, conversation, request.FromPhoneNumber, ct);
             await _db.SaveChangesAsync(ct);
             _logger.LogWarning(
-                "Mensagem recebida salva, mas o tenant ainda não configurou a chave da Anthropic " +
-                "(Configurações > Agente de IA). Conversa={ConversationId}", conversation.Id);
+                "Mensagem recebida, mas o tenant ainda não configurou a chave da Anthropic. Conversa={ConversationId}",
+                conversation.Id);
             await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, null);
         }
 
         var anthropicApiKey = _secretProtector.Decrypt(agentConfig.AnthropicApiKeyEncrypted);
 
-        // 5. Monta histórico e chama a IA (Claude)
+        // 5. Monta histórico e chama a IA (Claude) — com a ferramenta de criar
+        // agendamento disponível de verdade.
         var history = conversation.Messages
             .OrderBy(m => m.CreatedAtUtc)
             .Select(m => (
@@ -192,20 +206,22 @@ public class ProcessIncomingMessageHandler
             .ToList();
         history.Add(("user", request.MessageText));
 
+        Task<string> OnCreateAppointment(AppointmentToolRequest toolRequest) =>
+            CreateAppointmentFromAiAsync(request.TenantId, contact, whatsappConnection, toolRequest, ct);
+
         AiReplyResult aiResult;
         try
         {
-            aiResult = await _aiAgent.GenerateReplyAsync(anthropicApiKey, agentConfig.SystemPrompt, history, ct);
+            aiResult = await _aiAgent.GenerateReplyAsync(
+                anthropicApiKey, agentConfig.SystemPrompt, history, currentLocalTime, OnCreateAppointment, ct);
         }
         catch (Exception ex)
         {
-            // Se a IA falhar (ex: chave da Anthropic inválida/sem saldo na conta do tenant),
-            // a mensagem AINDA PRECISA ser salva — só não vai ter resposta automática dessa vez.
             _logger.LogError(ex,
-                "Falha ao chamar a IA para gerar resposta. A mensagem será salva mesmo assim, sem auto-resposta. Conversa={ConversationId}",
-                conversation.Id);
+                "Falha ao chamar a IA para gerar resposta. Conversa={ConversationId}", conversation.Id);
 
             conversation.Status = ConversationStatus.WaitingHuman;
+            await SendFallbackMessageAsync(agentConfig, whatsappConnection, conversation, request.FromPhoneNumber, ct);
             await _db.SaveChangesAsync(ct);
             await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, null);
@@ -213,9 +229,6 @@ public class ProcessIncomingMessageHandler
 
         conversation.LastDetectedIntent = aiResult.DetectedIntent;
 
-        // Registra o consumo (tokens + custo estimado) para o tenant conseguir
-        // acompanhar quanto está gastando através do app — isso é só leitura/
-        // relatório, não é um saldo que a gente controla ou desconta.
         var costUsd = (aiResult.InputTokens / 1_000_000m) * InputCostPerMillionTokens
                      + (aiResult.OutputTokens / 1_000_000m) * OutputCostPerMillionTokens;
         _db.AiUsageLogs.Add(new AiUsageLog
@@ -227,15 +240,17 @@ public class ProcessIncomingMessageHandler
             CostUsd = costUsd
         });
 
+        if (aiResult.CreatedAppointment)
+        {
+            _logger.LogInformation("IA criou um agendamento automaticamente. Conversa={ConversationId}", conversation.Id);
+        }
+
         // 6. Se precisa de aprovação humana, apenas registra sugestão e para por aqui.
-        //    (No painel, o agente humano aprova e um outro comando dispara o envio.)
         if (agentConfig.RequireHumanApproval || aiResult.ShouldEscalateToHuman)
         {
             conversation.Status = ConversationStatus.WaitingHuman;
             conversation.PendingAiSuggestion = aiResult.ReplyText;
             await _db.SaveChangesAsync(ct);
-            _logger.LogInformation(
-                "Mensagem recebida salva, aguardando aprovação humana. Conversa={ConversationId}", conversation.Id);
             await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
             return new ProcessIncomingMessageResult(false, aiResult.ReplyText);
         }
@@ -249,8 +264,7 @@ public class ProcessIncomingMessageHandler
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Falha ao enviar a resposta automática pelo WhatsApp. A mensagem recebida será salva mesmo assim. Conversa={ConversationId}",
-                conversation.Id);
+                "Falha ao enviar a resposta automática pelo WhatsApp. Conversa={ConversationId}", conversation.Id);
 
             conversation.Status = ConversationStatus.WaitingHuman;
             await _db.SaveChangesAsync(ct);
@@ -271,5 +285,113 @@ public class ProcessIncomingMessageHandler
         await _db.SaveChangesAsync(ct);
         await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
         return new ProcessIncomingMessageResult(true, aiResult.ReplyText);
+    }
+
+    /// <summary>
+    /// Callback chamado pela IA (via tool use) quando o cliente confirma um
+    /// agendamento. Cria o Appointment de verdade, com lembretes padrão, e
+    /// devolve uma frase de confirmação pra IA usar na resposta final.
+    /// </summary>
+    private async Task<string> CreateAppointmentFromAiAsync(
+        Guid tenantId, Contact contact, WhatsAppConnection connection,
+        AppointmentToolRequest toolRequest, CancellationToken ct)
+    {
+        if (toolRequest.ScheduledForUtc <= DateTime.UtcNow)
+            return "Erro: essa data/hora já passou. Peça pro cliente confirmar uma data futura.";
+
+        var appointment = new Appointment
+        {
+            TenantId = tenantId,
+            ContactId = contact.Id,
+            WhatsAppConnectionId = connection.Id,
+            Title = toolRequest.Title,
+            ScheduledForUtc = toolRequest.ScheduledForUtc,
+            Notes = toolRequest.Notes,
+            Status = AppointmentStatus.Scheduled
+        };
+        _db.Appointments.Add(appointment);
+
+        foreach (var minutesBefore in DefaultReminderOffsetMinutes)
+        {
+            var sendAt = toolRequest.ScheduledForUtc.AddMinutes(-minutesBefore);
+            if (sendAt <= DateTime.UtcNow) continue;
+
+            var reminder = new Reminder
+            {
+                TenantId = tenantId,
+                Appointment = appointment,
+                SendAtUtc = sendAt,
+                Channel = ReminderChannel.WhatsApp,
+                Status = ReminderStatus.Pending,
+                MessageTemplate = "Olá {nome}! Passando para lembrar do seu compromisso \"{titulo}\" em {data} às {hora}. Até lá!"
+            };
+            reminder.HangfireJobId = _reminderScheduler.Schedule(reminder.Id, sendAt);
+            _db.Reminders.Add(reminder);
+        }
+
+        // Salva já aqui pra garantir que o agendamento existe mesmo que o
+        // resto do fluxo (resposta da IA, envio da mensagem) falhe depois.
+        await _db.SaveChangesAsync(ct);
+
+        return $"Agendamento \"{toolRequest.Title}\" criado com sucesso para " +
+               $"{toolRequest.ScheduledForUtc:dd/MM/yyyy} às {toolRequest.ScheduledForUtc:HH:mm}.";
+    }
+
+    private async Task SendFallbackMessageAsync(
+        AiAgentConfig agentConfig, WhatsAppConnection connection, Conversation conversation,
+        string toPhoneNumber, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(agentConfig.FallbackMessage)) return;
+
+        try
+        {
+            await _whatsApp.SendTextMessageAsync(connection.InstanceName, toPhoneNumber, agentConfig.FallbackMessage, ct);
+            _db.Messages.Add(new Message
+            {
+                TenantId = conversation.TenantId,
+                Conversation = conversation,
+                Content = agentConfig.FallbackMessage,
+                Direction = MessageDirection.Outbound,
+                SentBy = MessageSender.System,
+                AiGenerated = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao enviar mensagem de fallback. Conversa={ConversationId}", conversation.Id);
+        }
+    }
+
+    private static DateTime GetTenantLocalTime(string? timeZoneId)
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId ?? "America/Sao_Paulo");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch
+        {
+            // Fuso desconhecido no sistema — cai pro horário de Brasília fixo (UTC-3) como último recurso.
+            return DateTime.UtcNow.AddHours(-3);
+        }
+    }
+
+    /// <summary>
+    /// Formato esperado em AiAgentConfig.BusinessHours: "HH:mm-HH:mm" (ex: "08:00-18:00").
+    /// Não considera dia da semana — é um horário fixo todos os dias, por enquanto.
+    /// </summary>
+    private static bool IsWithinBusinessHours(string businessHours, DateTime currentLocalTime)
+    {
+        var parts = businessHours.Split('-');
+        if (parts.Length != 2) return true; // formato inesperado: não bloqueia, assume 24h
+
+        if (!TimeSpan.TryParse(parts[0].Trim(), out var start) ||
+            !TimeSpan.TryParse(parts[1].Trim(), out var end))
+            return true;
+
+        var now = currentLocalTime.TimeOfDay;
+        return start <= end
+            ? now >= start && now <= end
+            : now >= start || now <= end; // horário que vira a meia-noite, ex: 22:00-06:00
     }
 }

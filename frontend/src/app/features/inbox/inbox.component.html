@@ -1,7 +1,7 @@
 <div class="inbox-page">
   <app-onboarding-checklist />
 
-  <div class="inbox">
+  <div class="inbox" [class.chat-open]="!!selectedConversation()">
   <aside class="conversation-list">
     <div class="list-header">
       <h2>Conversas</h2>
@@ -23,7 +23,10 @@
             <strong>{{ conv.contact.name || conv.contact.phoneNumber }}</strong>
             <span class="preview">{{ conv.lastMessagePreview }}</span>
             @if (conv.pendingAiSuggestion) {
-              <span class="status ai-pending">💡 sugestão da IA</span>
+              <span class="status ai-pending">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="10" height="10"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2a5 5 0 0 0-3 9v1.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V11a5 5 0 0 0-3-9ZM8.5 17h3"/></svg>
+                sugestão da IA
+              </span>
             } @else {
               <span class="status" [attr.data-status]="conv.status">{{ conv.status }}</span>
             }
@@ -38,6 +41,9 @@
   <section class="chat-panel">
     @if (selectedConversation(); as conv) {
       <header>
+        <button class="back-btn" (click)="backToList()" title="Voltar">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12.5 15 7 10l5.5-5"/></svg>
+        </button>
         <div class="avatar-lg">
           @if (conv.contact.profilePictureUrl) {
             <img [src]="conv.contact.profilePictureUrl" alt="" />
@@ -51,10 +57,16 @@
             <span class="header-phone">{{ conv.contact.phoneNumber }}</span>
           }
         </div>
-        <button class="gen-proposal-btn" (click)="generateProposal()" [disabled]="generatingProposal()" title="Gerar proposta com IA">
-          {{ generatingProposal() ? '...' : '📄' }}
+        <button class="icon-btn gen-proposal-btn" (click)="generateProposal()" [disabled]="generatingProposal()" title="Gerar proposta com IA">
+          @if (generatingProposal()) {
+            <svg class="spin" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="30 15"/></svg>
+          } @else {
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2h6l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v4h4M7 11h6M7 14h6M7 8h2"/></svg>
+          }
         </button>
-        <button class="delete-conversation-btn" (click)="askDeleteConversation()" title="Remover conversa">🗑</button>
+        <button class="icon-btn delete-conversation-btn" (click)="askDeleteConversation()" title="Remover conversa">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h12M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m-7 0 .6 10.2A2 2 0 0 0 7.6 18h4.8a2 2 0 0 0 2-1.8L15 6M8.5 9.5v5m3-5v5"/></svg>
+        </button>
       </header>
 
       <div class="messages">
@@ -77,7 +89,7 @@
       @if (conv.pendingAiSuggestion) {
         <div class="ai-suggestion-card">
           <div class="ai-suggestion-header">
-            <span class="ai-suggestion-icon">💡</span>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2a5 5 0 0 0-3 9v1.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V11a5 5 0 0 0-3-9ZM8.5 17h3"/></svg>
             <span>A IA sugeriu esta resposta — revise antes de enviar</span>
           </div>
           <p class="ai-suggestion-text">{{ conv.pendingAiSuggestion }}</p>
@@ -105,7 +117,9 @@
       }
 
       <footer>
-        <button class="template-btn" (click)="toggleTemplatePicker()" title="Usar modelo de mensagem">📋</button>
+        <button class="template-btn" (click)="toggleTemplatePicker()" title="Usar modelo de mensagem">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm2 4h4M7 10h6M7 13h6"/></svg>
+        </button>
         <input
           type="text"
           placeholder="Digite uma mensagem..."

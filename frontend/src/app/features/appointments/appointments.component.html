@@ -29,7 +29,8 @@
           <div class="appt-reminders">
             @for (r of appt.reminders; track r.id) {
               <span class="reminder-chip" [attr.data-status]="r.status">
-                🔔 {{ r.sendAtUtc | date: 'dd/MM HH:mm' }} — {{ r.status }}
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="11" height="11"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2a1 1 0 0 1 1 1v.6a5 5 0 0 1 4 4.9v3l1.3 2.2a.8.8 0 0 1-.7 1.3H4.4a.8.8 0 0 1-.7-1.3L5 11.5v-3a5 5 0 0 1 4-4.9V3a1 1 0 0 1 1-1ZM8 16.5a2 2 0 0 0 4 0"/></svg>
+                {{ r.sendAtUtc | date: 'dd/MM HH:mm' }} — {{ r.status }}
               </span>
             }
           </div>

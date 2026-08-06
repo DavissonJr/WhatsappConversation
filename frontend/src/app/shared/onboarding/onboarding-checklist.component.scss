@@ -5,6 +5,11 @@
   padding: 20px 24px;
   margin: 20px 20px 0;
   box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.06));
+
+  @media (max-width: 600px) {
+    margin: 12px 12px 0;
+    padding: 16px;
+  }
 }
 
 .onboarding-header {

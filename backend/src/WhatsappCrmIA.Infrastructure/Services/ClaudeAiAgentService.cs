@@ -51,7 +51,9 @@ public class ClaudeAiAgentService : IAiAgentService
                 "uma data e horário específicos para um compromisso (consulta, serviço, reunião etc). " +
                 "Só chame esta ferramenta quando tiver certeza da data e do horário exatos — se " +
                 "estiver ambíguo (ex: só 'sexta-feira' sem hora, ou 'de manhã' sem data), NÃO chame " +
-                "a ferramenta ainda: responda normalmente pedindo a informação que falta.",
+                "a ferramenta ainda: responda normalmente pedindo a informação que falta. " +
+                "Se o horário já estiver ocupado, a ferramenta vai recusar — nesse caso, peça pro " +
+                "cliente escolher outro horário.",
             input_schema = new
             {
                 type = "object",
@@ -71,7 +73,7 @@ public class ClaudeAiAgentService : IAiAgentService
         string systemPrompt,
         IReadOnlyList<(string role, string content)> conversationHistory,
         DateTime currentLocalTime,
-        Func<AppointmentToolRequest, Task<string>>? onCreateAppointment,
+        Func<AppointmentToolRequest, Task<(bool Success, string Message)>>? onCreateAppointment,
         CancellationToken ct = default)
     {
         var canCreateAppointment = onCreateAppointment is not null;
@@ -111,7 +113,11 @@ public class ClaudeAiAgentService : IAiAgentService
 
         var response = await _http.SendAsync(BuildRequest(apiKey, payload), ct);
         await EnsureSuccessOrThrowAsync(response, ct);
-        var raw = await response.Content.ReadFromJsonAsync<ClaudeResponse>(cancellationToken: ct);
+
+        var responseBody = await response.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(responseBody);
+        var contentElement = doc.RootElement.GetProperty("content").Clone();
+        var raw = JsonSerializer.Deserialize<ClaudeResponse>(responseBody);
 
         var totalInputTokens = raw?.Usage?.InputTokens ?? 0;
         var totalOutputTokens = raw?.Usage?.OutputTokens ?? 0;
@@ -121,8 +127,6 @@ public class ClaudeAiAgentService : IAiAgentService
 
         if (toolUseBlock is not null && onCreateAppointment is not null)
         {
-            createdAppointment = true;
-
             string toolResultText;
             try
             {
@@ -134,32 +138,35 @@ public class ClaudeAiAgentService : IAiAgentService
                 if (scheduledForRaw is null || !DateTime.TryParse(scheduledForRaw, out var scheduledForLocal))
                 {
                     toolResultText = "Erro: não foi possível entender a data/hora informada. Peça pro cliente confirmar de novo, com data e hora bem claras.";
-                    createdAppointment = false;
                 }
                 else
                 {
                     var scheduledForUtc = DateTime.SpecifyKind(scheduledForLocal, DateTimeKind.Unspecified) - (currentLocalTime - DateTime.UtcNow);
-                    toolResultText = await onCreateAppointment(new AppointmentToolRequest(title, scheduledForUtc, notes));
+                    var result = await onCreateAppointment(new AppointmentToolRequest(title, scheduledForUtc, notes));
+                    createdAppointment = result.Success;
+                    toolResultText = result.Message;
                 }
             }
             catch (Exception ex)
             {
                 toolResultText = $"Erro ao criar o agendamento: {ex.Message}. Avise o cliente que um atendente vai confirmar manualmente.";
-                createdAppointment = false;
             }
 
-            // Manda de volta pro Claude o resultado da ferramenta, pra ele formular a resposta final.
-            var assistantContent = raw!.Content!.Select(c => c.Type == "tool_use"
-                ? (object)new { type = "tool_use", id = c.Id, name = c.Name, input = c.Input }
-                : new { type = "text", text = c.Text }).ToList();
-
-            messages.Add(new Dictionary<string, object> { ["role"] = "assistant", ["content"] = assistantContent });
+            // Reenvia pro Claude o array de conteúdo EXATAMENTE como ele devolveu
+            // (sem reconstruir campo por campo — isso evita qualquer divergência
+            // sutil de formato que a API rejeitaria).
+            messages.Add(new Dictionary<string, object> { ["role"] = "assistant", ["content"] = contentElement });
             messages.Add(new Dictionary<string, object>
             {
                 ["role"] = "user",
                 ["content"] = new object[]
                 {
-                    new { type = "tool_result", tool_use_id = toolUseBlock.Id, content = toolResultText }
+                    new Dictionary<string, object>
+                    {
+                        ["type"] = "tool_result",
+                        ["tool_use_id"] = toolUseBlock.Id!,
+                        ["content"] = toolResultText
+                    }
                 }
             });
 

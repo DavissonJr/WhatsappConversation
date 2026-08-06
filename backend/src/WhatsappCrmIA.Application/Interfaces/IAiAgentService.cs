@@ -33,7 +33,7 @@ public interface IAiAgentService
         string systemPrompt,
         IReadOnlyList<(string role, string content)> conversationHistory,
         DateTime currentLocalTime,
-        Func<AppointmentToolRequest, Task<string>>? onCreateAppointment,
+        Func<AppointmentToolRequest, Task<(bool Success, string Message)>>? onCreateAppointment,
         CancellationToken ct = default);
 
     /// <summary>

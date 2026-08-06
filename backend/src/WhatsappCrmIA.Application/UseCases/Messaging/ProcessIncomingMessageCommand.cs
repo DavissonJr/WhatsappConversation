@@ -206,7 +206,7 @@ public class ProcessIncomingMessageHandler
             .ToList();
         history.Add(("user", request.MessageText));
 
-        Task<string> OnCreateAppointment(AppointmentToolRequest toolRequest) =>
+        Task<(bool Success, string Message)> OnCreateAppointment(AppointmentToolRequest toolRequest) =>
             CreateAppointmentFromAiAsync(request.TenantId, contact, whatsappConnection, toolRequest, ct);
 
         AiReplyResult aiResult;
@@ -289,15 +289,34 @@ public class ProcessIncomingMessageHandler
 
     /// <summary>
     /// Callback chamado pela IA (via tool use) quando o cliente confirma um
-    /// agendamento. Cria o Appointment de verdade, com lembretes padrão, e
-    /// devolve uma frase de confirmação pra IA usar na resposta final.
+    /// agendamento. Checa conflito de horário, cria o Appointment de verdade
+    /// (com lembretes padrão) e devolve se conseguiu + uma frase pra IA usar
+    /// na resposta final (de confirmação ou explicando o motivo de não ter dado certo).
     /// </summary>
-    private async Task<string> CreateAppointmentFromAiAsync(
+    private async Task<(bool Success, string Message)> CreateAppointmentFromAiAsync(
         Guid tenantId, Contact contact, WhatsAppConnection connection,
         AppointmentToolRequest toolRequest, CancellationToken ct)
     {
         if (toolRequest.ScheduledForUtc <= DateTime.UtcNow)
-            return "Erro: essa data/hora já passou. Peça pro cliente confirmar uma data futura.";
+            return (false, "Erro: essa data/hora já passou. Peça pro cliente confirmar uma data futura.");
+
+        // Checa se já não tem outro agendamento marcado muito perto desse horário
+        // (mesma empresa, qualquer contato) — evita dois compromissos conflitando.
+        var conflictWindow = TimeSpan.FromMinutes(30);
+        var hasConflict = await _db.Appointments
+            .IgnoreQueryFilters()
+            .AnyAsync(a => a.TenantId == tenantId
+                        && a.Status != AppointmentStatus.Cancelled
+                        && a.Status != AppointmentStatus.Completed
+                        && a.ScheduledForUtc > toolRequest.ScheduledForUtc - conflictWindow
+                        && a.ScheduledForUtc < toolRequest.ScheduledForUtc + conflictWindow, ct);
+
+        if (hasConflict)
+        {
+            return (false,
+                $"Erro: já existe outro agendamento marcado perto de {toolRequest.ScheduledForUtc:dd/MM HH:mm}. " +
+                "Peça pro cliente escolher outro horário (pelo menos 30 minutos de diferença) e ofereça alternativas próximas.");
+        }
 
         var appointment = new Appointment
         {
@@ -333,8 +352,9 @@ public class ProcessIncomingMessageHandler
         // resto do fluxo (resposta da IA, envio da mensagem) falhe depois.
         await _db.SaveChangesAsync(ct);
 
-        return $"Agendamento \"{toolRequest.Title}\" criado com sucesso para " +
-               $"{toolRequest.ScheduledForUtc:dd/MM/yyyy} às {toolRequest.ScheduledForUtc:HH:mm}.";
+        return (true,
+            $"Agendamento \"{toolRequest.Title}\" criado com sucesso para " +
+            $"{toolRequest.ScheduledForUtc:dd/MM/yyyy} às {toolRequest.ScheduledForUtc:HH:mm}.");
     }
 
     private async Task SendFallbackMessageAsync(

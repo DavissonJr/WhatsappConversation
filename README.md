@@ -22,8 +22,8 @@ propostas comerciais, e dá visibilidade de tudo isso num dashboard.
 
 - **Multi-tenant** de verdade: cada empresa (tenant) tem seus próprios dados, isolados
   por `TenantId` com query filters automáticos no EF Core
-- **Autenticação** (registro/login com JWT), gestão de equipe (convidar atendentes,
-  ativar/desativar)
+- **Autenticação** (registro com confirmação por código de e-mail — ajuda contra
+  bots — e login com JWT), gestão de equipe (convidar atendentes, ativar/desativar)
 - **Múltiplos números de WhatsApp por empresa**, com QR code, desconectar, remover,
   e configuração automática de webhook (você não precisa configurar nada manualmente
   na Evolution API — o sistema faz isso sozinho ao criar o número)
@@ -103,8 +103,29 @@ C:\Users\<voce>\AppData\Local\Programs\DockerDesktop\resources\bin
 cp .env.example .env
 ```
 
-Hoje o `.env` só precisa mesmo existir (pode ficar vazio) — a chave da Anthropic
-**não é mais global**, cada empresa cadastra a própria pela tela de Configurações.
+A chave da Anthropic **não é mais global** — cada empresa cadastra a própria pela
+tela de Configurações. O que precisa mesmo estar no `.env` é o **SMTP**, usado pra
+mandar o código de confirmação de e-mail no cadastro (ver seção abaixo).
+
+#### Configurando o SMTP (obrigatório pra cadastro funcionar de verdade)
+
+Sem isso configurado, o sistema não trava — ele só **loga** o código no console
+da API em vez de mandar e-mail de verdade (útil pra testar localmente sem SMTP).
+
+Exemplo rápido com Gmail:
+1. Ative a verificação em duas etapas na sua conta Google (se ainda não tiver)
+2. Gere uma "Senha de app" em https://myaccount.google.com/apppasswords
+3. No `.env`:
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=seu-email@gmail.com
+SMTP_PASSWORD=a-senha-de-app-gerada-ali-em-cima
+SMTP_FROM_EMAIL=seu-email@gmail.com
+```
+
+Qualquer outro provedor SMTP (SendGrid, Mailgun, Amazon SES, etc.) funciona do
+mesmo jeito — só trocar host/porta/credenciais.
 
 ### 3. Gerar e aplicar as migrations
 

@@ -22,8 +22,10 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResult>
 
     public async Task<AuthResult> Handle(LoginCommand request, CancellationToken ct)
     {
+        var email = request.Email.Trim().ToLowerInvariant();
+
         // Users não tem query filter de tenant (não temos tenant atual antes do login).
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email, ct);
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
 
         if (user is null || !user.IsActive || !_passwordHasher.Verify(request.Password, user.PasswordHash))
             return new AuthResult(false, null, "E-mail ou senha inválidos.");

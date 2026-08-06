@@ -21,6 +21,7 @@ public interface IApplicationDbContext
     DbSet<Reminder> Reminders { get; }
     DbSet<MessageTemplate> MessageTemplates { get; }
     DbSet<AiUsageLog> AiUsageLogs { get; }
+    DbSet<PendingRegistration> PendingRegistrations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

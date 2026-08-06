@@ -142,6 +142,28 @@
     margin-bottom: 18px;
   }
 
+  .success-banner {
+    background: var(--signal-100);
+    color: var(--signal-600);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  .code-input {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    font-family: var(--font-display);
+  }
+
+  .disabled-link {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
   button[type='submit'] {
     width: 100%;
     padding: 12px;
@@ -169,6 +191,7 @@
       color: var(--signal-600);
       font-weight: 600;
       text-decoration: none;
+      cursor: pointer;
     }
   }
 

@@ -14,6 +14,16 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     }
 }
 
+public class PendingRegistrationConfiguration : IEntityTypeConfiguration<PendingRegistration>
+{
+    public void Configure(EntityTypeBuilder<PendingRegistration> builder)
+    {
+        builder.HasKey(p => p.Id);
+        builder.HasIndex(p => p.Email).IsUnique();
+        builder.Property(p => p.Email).HasMaxLength(200).IsRequired();
+    }
+}
+
 public class WhatsAppConnectionConfiguration : IEntityTypeConfiguration<WhatsAppConnection>
 {
     public void Configure(EntityTypeBuilder<WhatsAppConnection> builder)

@@ -16,50 +16,92 @@
   </div>
 
   <div class="auth-form-panel">
-    <form class="auth-form" (ngSubmit)="submit()">
-      <h2>Criar conta</h2>
-      <p class="subtitle">Cadastre sua empresa e comece agora</p>
+    @if (step() === 'form') {
+      <form class="auth-form" (ngSubmit)="submit()">
+        <h2>Criar conta</h2>
+        <p class="subtitle">Cadastre sua empresa e comece agora</p>
 
-      @if (errorMessage()) {
-        <div class="error-banner">{{ errorMessage() }}</div>
-      }
+        @if (errorMessage()) {
+          <div class="error-banner">{{ errorMessage() }}</div>
+        }
 
-      <div class="field">
-        <label for="companyName">Nome da empresa</label>
-        <input id="companyName" type="text" [(ngModel)]="companyName" name="companyName" required />
-      </div>
+        <div class="field">
+          <label for="companyName">Nome da empresa</label>
+          <input id="companyName" type="text" [(ngModel)]="companyName" name="companyName" required />
+        </div>
 
-      <div class="field">
-        <label for="segment">Segmento</label>
-        <select id="segment" [(ngModel)]="segment" name="segment">
-          @for (opt of segments; track opt.value) {
-            <option [value]="opt.value">{{ opt.label }}</option>
-          }
-        </select>
-      </div>
+        <div class="field">
+          <label for="segment">Segmento</label>
+          <select id="segment" [(ngModel)]="segment" name="segment">
+            @for (opt of segments; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
 
-      <div class="field">
-        <label for="fullName">Seu nome</label>
-        <input id="fullName" type="text" [(ngModel)]="fullName" name="fullName" required autocomplete="name" />
-      </div>
+        <div class="field">
+          <label for="fullName">Seu nome</label>
+          <input id="fullName" type="text" [(ngModel)]="fullName" name="fullName" required autocomplete="name" />
+        </div>
 
-      <div class="field">
-        <label for="email">E-mail</label>
-        <input id="email" type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
-      </div>
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input id="email" type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
+        </div>
 
-      <div class="field">
-        <label for="password">Senha</label>
-        <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="new-password" minlength="6" />
-      </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="new-password" minlength="6" />
+        </div>
 
-      <button type="submit" [disabled]="loading()">
-        {{ loading() ? 'Criando conta...' : 'Criar conta grátis' }}
-      </button>
+        <button type="submit" [disabled]="loading()">
+          {{ loading() ? 'Criando conta...' : 'Criar conta grátis' }}
+        </button>
 
-      <div class="switch-link">
-        Já tem conta? <a routerLink="/login">Entrar</a>
-      </div>
-    </form>
+        <div class="switch-link">
+          Já tem conta? <a routerLink="/login">Entrar</a>
+        </div>
+      </form>
+    } @else {
+      <form class="auth-form" (ngSubmit)="verifyCode()">
+        <h2>Confirme seu e-mail</h2>
+        <p class="subtitle">
+          Mandamos um código de 6 dígitos para <strong>{{ email() }}</strong>. Confira também a caixa de spam.
+        </p>
+
+        @if (codeError()) {
+          <div class="error-banner">{{ codeError() }}</div>
+        }
+        @if (resendMessage()) {
+          <div class="success-banner">{{ resendMessage() }}</div>
+        }
+
+        <div class="field">
+          <label for="code">Código de confirmação</label>
+          <input
+            id="code"
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="000000"
+            class="code-input"
+            [(ngModel)]="code"
+            name="code"
+            autocomplete="one-time-code" />
+        </div>
+
+        <button type="submit" [disabled]="verifying()">
+          {{ verifying() ? 'Confirmando...' : 'Confirmar e entrar' }}
+        </button>
+
+        <div class="switch-link">
+          Não recebeu?
+          <a (click)="resendCode()" [class.disabled-link]="resending()">
+            {{ resending() ? 'Enviando...' : 'Reenviar código' }}
+          </a>
+          · <a (click)="backToForm()">Corrigir e-mail</a>
+        </div>
+      </form>
+    }
   </div>
 </div>

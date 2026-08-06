@@ -53,6 +53,12 @@ services:
       EvolutionApi__BaseUrl: "http://evolution-api:8080"
       EvolutionApi__ApiKey: "CHANGE_ME"
       Anthropic__ApiKey: "${ANTHROPIC_API_KEY:-CHANGE_ME}"
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__Username: "${SMTP_USERNAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromEmail: "${SMTP_FROM_EMAIL:-no-reply@zappycrm.com}"
+      Smtp__FromName: "Zappy CRM"
       Cors__AllowedOrigin: "http://localhost:4200"
     ports:
       - "5000:8080"

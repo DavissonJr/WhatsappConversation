@@ -21,6 +21,10 @@ interface AuthResponse {
   token: string;
 }
 
+interface RegisterResponse {
+  requiresVerification: boolean;
+}
+
 interface DecodedToken {
   name?: string;
   email?: string;
@@ -46,10 +50,20 @@ export class AuthService {
     this.hydrateFromStorage();
   }
 
-  register(payload: RegisterPayload): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.baseUrl}/register`, payload).pipe(
+  /** Passo 1: manda os dados, um código de 6 dígitos chega no e-mail. */
+  register(payload: RegisterPayload): Observable<RegisterResponse> {
+    return this.http.post<RegisterResponse>(`${this.baseUrl}/register`, payload);
+  }
+
+  /** Passo 2: confirma o código — só aqui a conta é criada de verdade. */
+  verifyRegistration(email: string, code: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.baseUrl}/verify-registration`, { email, code }).pipe(
       tap((res) => this.setSession(res.token)),
     );
+  }
+
+  resendCode(email: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/resend-code`, { email });
   }
 
   login(payload: LoginPayload): Observable<AuthResponse> {

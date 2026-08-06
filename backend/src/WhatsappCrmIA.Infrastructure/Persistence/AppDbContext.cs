@@ -26,6 +26,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Reminder> Reminders => Set<Reminder>();
     public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
     public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
+    public DbSet<PendingRegistration> PendingRegistrations => Set<PendingRegistration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

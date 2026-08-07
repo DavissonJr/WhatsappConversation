@@ -46,6 +46,11 @@ propostas comerciais, e dá visibilidade de tudo isso num dashboard.
   do horário, disparados por jobs do Hangfire mesmo com ninguém no painel
 - **Propostas comerciais geradas por IA**: a partir de uma conversa, gera um rascunho
   que o atendente revisa, edita e envia pelo WhatsApp
+- **Página de Contatos**: busca, filtro por status, edição (nome/observações/bloqueio)
+- **Campanhas de mensagem em lote**: manda mensagem pra vários contatos de uma vez,
+  com segmentação (sem agendamento há X dias, sem conversa há X dias, busca) e envio
+  gradual em segundo plano (Hangfire) com intervalo configurável entre cada mensagem —
+  protege o número contra bloqueio por disparo em massa
 - **Dashboard** com métricas (contatos, mensagens, conversas, agendamentos, propostas,
   uso de IA) e gráficos (Chart.js)
 - **Painel administrativo da plataforma** (`/admin`) — só visível pra quem administra

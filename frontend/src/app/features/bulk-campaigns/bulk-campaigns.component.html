@@ -1,0 +1,148 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Campanhas</h1>
+      <p>Mande uma mensagem pra vários contatos de uma vez, com segmentação e envio gradual (protege seu número de bloqueio).</p>
+    </div>
+  </header>
+
+  <div class="campaign-form">
+    <section class="form-section">
+      <h2>1. Quem vai receber</h2>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [(ngModel)]="excludeBlocked" />
+        Não incluir contatos bloqueados
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [(ngModel)]="useNoAppointmentFilter" />
+        Só contatos sem agendamento nos últimos
+        <input
+          type="number"
+          min="1"
+          class="inline-number"
+          [disabled]="!useNoAppointmentFilter()"
+          [ngModel]="noAppointmentDays()"
+          (ngModelChange)="noAppointmentDays.set($event)" />
+        dias
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [(ngModel)]="useNoConversationFilter" />
+        Só contatos sem nenhuma mensagem nos últimos
+        <input
+          type="number"
+          min="1"
+          class="inline-number"
+          [disabled]="!useNoConversationFilter()"
+          [ngModel]="noConversationDays()"
+          (ngModelChange)="noConversationDays.set($event)" />
+        dias
+      </label>
+
+      <div class="field">
+        <label>Buscar por nome ou telefone (opcional)</label>
+        <input type="text" [(ngModel)]="searchTerm" placeholder="Deixe em branco pra não filtrar" />
+      </div>
+
+      <div class="preview-row">
+        <button class="btn-secondary" (click)="runPreview()" [disabled]="previewing()">
+          {{ previewing() ? 'Calculando...' : 'Ver quantos contatos' }}
+        </button>
+        @if (previewCount() !== null) {
+          <span class="preview-count">
+            <strong>{{ previewCount() }}</strong> contato(s) receberão essa campanha
+          </span>
+        }
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>2. A mensagem</h2>
+
+      <div class="field">
+        <label>Nome da campanha (só interno, pra você identificar)</label>
+        <input type="text" [(ngModel)]="title" placeholder="Ex: Reativação de clientes inativos - agosto" />
+      </div>
+
+      <div class="field">
+        <div class="field-header">
+          <label>Mensagem</label>
+          <button type="button" class="link-btn" (click)="showTemplatePicker.set(!showTemplatePicker())">
+            Usar modelo
+          </button>
+        </div>
+
+        @if (showTemplatePicker()) {
+          <div class="template-list">
+            @for (t of templates(); track t.id) {
+              <button type="button" class="template-item" (click)="useTemplate(t)">{{ t.name }}</button>
+            } @empty {
+              <span class="empty-hint">Nenhum modelo cadastrado ainda.</span>
+            }
+          </div>
+        }
+
+        <textarea rows="4" [(ngModel)]="messageText" placeholder="Escreva a mensagem... use {{ '{' }}nome{{ '}' }} pra personalizar"></textarea>
+        <span class="field-hint">{{ '{' }}nome{{ '}' }} vira o nome do contato automaticamente (ou o telefone, se não tiver nome salvo).</span>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Enviar a partir de</label>
+          <select [(ngModel)]="connectionId">
+            @for (c of connections(); track c.id) {
+              <option [value]="c.id">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Intervalo entre mensagens (segundos)</label>
+          <input type="number" min="3" [ngModel]="delaySeconds()" (ngModelChange)="delaySeconds.set($event)" />
+          <span class="field-hint">Mínimo 3s. Quanto maior, mais seguro pro seu número não ser bloqueado.</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" (click)="startCampaign()" [disabled]="creating()">
+        {{ creating() ? 'Iniciando...' : 'Iniciar campanha' }}
+      </button>
+    </section>
+  </div>
+
+  <h2 class="history-title">Histórico</h2>
+
+  <div class="campaigns-list">
+    @for (c of campaigns(); track c.id) {
+      <div class="campaign-card">
+        <div class="campaign-header">
+          <strong>{{ c.title }}</strong>
+          <span class="status-badge" [attr.data-status]="c.status">{{ statusLabels[c.status] }}</span>
+        </div>
+
+        <p class="campaign-message">{{ c.messageText }}</p>
+
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="progressPercent(c)"></div>
+        </div>
+        <div class="progress-numbers">
+          <span>{{ c.sentCount }} enviadas</span>
+          @if (c.failedCount > 0) {
+            <span class="failed-count">{{ c.failedCount }} falharam</span>
+          }
+          <span>de {{ c.totalRecipients }} · via {{ c.whatsAppConnectionLabel }}</span>
+        </div>
+
+        <div class="campaign-footer">
+          <span class="campaign-date">Criada em {{ c.createdAtUtc | date: 'dd/MM/yy HH:mm' }}</span>
+          @if (c.status === 'Pending' || c.status === 'Running') {
+            <button class="btn-ghost danger" (click)="cancelCampaign(c)">Cancelar</button>
+          }
+        </div>
+      </div>
+    } @empty {
+      <p class="empty-state">Nenhuma campanha ainda. Preencha o formulário acima pra criar a primeira.</p>
+    }
+  </div>
+</div>

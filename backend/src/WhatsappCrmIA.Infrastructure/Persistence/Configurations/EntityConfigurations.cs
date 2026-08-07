@@ -120,3 +120,33 @@ public class ReminderConfiguration : IEntityTypeConfiguration<Reminder>
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class BulkMessageCampaignConfiguration : IEntityTypeConfiguration<BulkMessageCampaign>
+{
+    public void Configure(EntityTypeBuilder<BulkMessageCampaign> builder)
+    {
+        builder.Property(c => c.Title).HasMaxLength(200).IsRequired();
+        builder.Property(c => c.MessageText).HasMaxLength(4000).IsRequired();
+
+        builder.HasOne(c => c.WhatsAppConnection)
+            .WithMany()
+            .HasForeignKey(c => c.WhatsAppConnectionId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class BulkMessageRecipientConfiguration : IEntityTypeConfiguration<BulkMessageRecipient>
+{
+    public void Configure(EntityTypeBuilder<BulkMessageRecipient> builder)
+    {
+        builder.HasOne(r => r.Campaign)
+            .WithMany(c => c.Recipients)
+            .HasForeignKey(r => r.CampaignId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(r => r.Contact)
+            .WithMany()
+            .HasForeignKey(r => r.ContactId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

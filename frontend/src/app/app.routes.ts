@@ -36,6 +36,11 @@ export const routes: Routes = [
           import('./features/contacts/contacts.component').then((m) => m.ContactsComponent),
       },
       {
+        path: 'campanhas',
+        loadComponent: () =>
+          import('./features/bulk-campaigns/bulk-campaigns.component').then((m) => m.BulkCampaignsComponent),
+      },
+      {
         path: 'numeros',
         loadComponent: () =>
           import('./features/whatsapp-connections/whatsapp-connections.component').then(

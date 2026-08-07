@@ -27,6 +27,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<MessageTemplate> MessageTemplates => Set<MessageTemplate>();
     public DbSet<AiUsageLog> AiUsageLogs => Set<AiUsageLog>();
     public DbSet<PendingRegistration> PendingRegistrations => Set<PendingRegistration>();
+    public DbSet<BulkMessageCampaign> BulkMessageCampaigns => Set<BulkMessageCampaign>();
+    public DbSet<BulkMessageRecipient> BulkMessageRecipients => Set<BulkMessageRecipient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +48,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Reminder>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<MessageTemplate>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
         modelBuilder.Entity<AiUsageLog>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
+        modelBuilder.Entity<BulkMessageCampaign>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
+        modelBuilder.Entity<BulkMessageRecipient>().HasQueryFilter(e => e.TenantId == _currentTenant.TenantId);
 
         base.OnModelCreating(modelBuilder);
     }

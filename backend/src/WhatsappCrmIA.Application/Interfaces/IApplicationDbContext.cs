@@ -22,6 +22,8 @@ public interface IApplicationDbContext
     DbSet<MessageTemplate> MessageTemplates { get; }
     DbSet<AiUsageLog> AiUsageLogs { get; }
     DbSet<PendingRegistration> PendingRegistrations { get; }
+    DbSet<BulkMessageCampaign> BulkMessageCampaigns { get; }
+    DbSet<BulkMessageRecipient> BulkMessageRecipients { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

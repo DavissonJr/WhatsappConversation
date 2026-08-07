@@ -86,3 +86,19 @@ public enum TemplateScope
     Agendamento = 5,
     Outro = 6
 }
+
+public enum BulkCampaignStatus
+{
+    Pending = 1,
+    Running = 2,
+    Completed = 3,
+    Cancelled = 4
+}
+
+public enum BulkRecipientStatus
+{
+    Pending = 1,
+    Sent = 2,
+    Failed = 3,
+    Skipped = 4
+}

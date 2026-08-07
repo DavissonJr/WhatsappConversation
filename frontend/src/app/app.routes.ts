@@ -31,6 +31,11 @@ export const routes: Routes = [
           import('./features/inbox/inbox.component').then((m) => m.InboxComponent),
       },
       {
+        path: 'contatos',
+        loadComponent: () =>
+          import('./features/contacts/contacts.component').then((m) => m.ContactsComponent),
+      },
+      {
         path: 'numeros',
         loadComponent: () =>
           import('./features/whatsapp-connections/whatsapp-connections.component').then(

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { ConversationService } from '../../core/services/conversation.service';
 import { WhatsAppConnectionService } from '../../core/services/whatsapp-connection.service';
@@ -32,9 +33,12 @@ export class InboxComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private proposalService = inject(ProposalService);
   private realtime = inject(RealtimeService);
+  private route = inject(ActivatedRoute);
   private pollSubscription?: Subscription;
   private realtimeSubscription?: Subscription;
   private lastKnownMessageTimes = new Map<string, string>();
+  /** Preenchido quando se chega no Inbox vindo da tela de Contatos (?phone=...). */
+  private pendingPhoneToSelect?: string;
 
   conversations = signal<ConversationSummary[]>([]);
   selectedConversation = signal<Conversation | null>(null);
@@ -60,6 +64,7 @@ export class InboxComponent implements OnInit, OnDestroy {
   generatingProposal = signal(false);
 
   ngOnInit(): void {
+    this.pendingPhoneToSelect = this.route.snapshot.queryParamMap.get('phone') ?? undefined;
     this.loadConversations();
     this.connectionService.getAll().subscribe((data) => {
       this.connections.set(data);
@@ -142,9 +147,18 @@ export class InboxComponent implements OnInit, OnDestroy {
     this.conversationService.getAll().subscribe({
       next: (data) => {
         this.conversations.set(data);
-        const toSelect = selectId
-          ? data.find((c) => c.id === selectId)
-          : this.selectedConversation() ?? data[0];
+
+        let toSelect: ConversationSummary | undefined;
+        if (selectId) {
+          toSelect = data.find((c) => c.id === selectId);
+        } else if (this.pendingPhoneToSelect) {
+          toSelect = data.find((c) => c.contact.phoneNumber === this.pendingPhoneToSelect);
+          if (!toSelect) this.toast.info('Esse contato ainda não tem nenhuma conversa.');
+          this.pendingPhoneToSelect = undefined; // só usa uma vez, no carregamento inicial
+        } else {
+          toSelect = this.selectedConversation() ?? data[0];
+        }
+
         if (toSelect) this.select(toSelect);
       },
       error: () => this.sendError.set('Não foi possível carregar as conversas. Recarregue a página.'),

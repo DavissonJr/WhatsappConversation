@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Contatos</h1>
+      <p>Todos os clientes que já falaram com você, num só lugar.</p>
+    </div>
+  </header>
+
+  <div class="filters-bar">
+    <div class="search-field">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16">
+        <circle cx="9" cy="9" r="6" />
+        <path stroke-linecap="round" d="m17 17-4-4" />
+      </svg>
+      <input
+        type="text"
+        placeholder="Buscar por nome ou telefone..."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="onSearchChange($event)" />
+    </div>
+
+    <div class="status-filters">
+      <button [class.active]="statusFilter() === 'all'" (click)="setStatusFilter('all')">Todos</button>
+      <button [class.active]="statusFilter() === 'active'" (click)="setStatusFilter('active')">Ativos</button>
+      <button [class.active]="statusFilter() === 'blocked'" (click)="setStatusFilter('blocked')">Bloqueados</button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="empty-state">Carregando...</p>
+  } @else {
+    <div class="contacts-list">
+      @for (contact of filteredContacts(); track contact.id) {
+        <div class="contact-card" [class.blocked]="contact.isBlocked">
+          <div class="avatar">
+            @if (contact.profilePictureUrl) {
+              <img [src]="contact.profilePictureUrl" alt="" />
+            } @else {
+              <span>{{ initials(contact) }}</span>
+            }
+          </div>
+
+          <div class="contact-info">
+            <strong>{{ contact.name || contact.phoneNumber }}</strong>
+            <span class="phone">{{ contact.phoneNumber }}</span>
+            @if (contact.notes) {
+              <span class="notes">{{ contact.notes }}</span>
+            }
+          </div>
+
+          <div class="contact-stats">
+            <div class="stat">
+              <span class="stat-value">{{ contact.conversationCount }}</span>
+              <span class="stat-label">conversas</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value">{{ contact.appointmentCount }}</span>
+              <span class="stat-label">agend.</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value">{{ contact.proposalCount }}</span>
+              <span class="stat-label">propostas</span>
+            </div>
+          </div>
+
+          <div class="contact-meta">
+            @if (contact.isBlocked) {
+              <span class="blocked-badge">Bloqueado</span>
+            }
+            @if (contact.lastActivityUtc) {
+              <span class="last-activity">Última msg: {{ contact.lastActivityUtc | date: 'dd/MM/yy HH:mm' }}</span>
+            }
+          </div>
+
+          <div class="contact-actions">
+            <button class="btn-ghost" (click)="openInInbox(contact)">Abrir no Inbox</button>
+            <button class="btn-ghost" (click)="openEdit(contact)">Editar</button>
+          </div>
+        </div>
+      } @empty {
+        <p class="empty-state">Nenhum contato encontrado.</p>
+      }
+    </div>
+  }
+</div>
+
+@if (editingContact(); as contact) {
+  <div class="modal-backdrop" (click)="closeEdit()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Editar contato</h3>
+      <p class="modal-subtitle">{{ contact.phoneNumber }}</p>
+
+      <div class="field">
+        <label>Nome</label>
+        <input type="text" [(ngModel)]="editName" placeholder="Nome do contato" />
+      </div>
+
+      <div class="field">
+        <label>Observações</label>
+        <textarea rows="3" [(ngModel)]="editNotes" placeholder="Anotações internas sobre esse contato"></textarea>
+      </div>
+
+      <div class="field checkbox-field">
+        <label>
+          <input type="checkbox" [(ngModel)]="editBlocked" />
+          Bloquear esse contato (não recebe mais respostas automáticas da IA)
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+        <button class="btn-primary" (click)="saveEdit()" [disabled]="saving()">
+          {{ saving() ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

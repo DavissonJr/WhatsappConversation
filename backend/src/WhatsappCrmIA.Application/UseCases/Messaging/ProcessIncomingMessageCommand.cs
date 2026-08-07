@@ -160,6 +160,16 @@ public class ProcessIncomingMessageHandler
             return new ProcessIncomingMessageResult(false, null);
         }
 
+        // Contato bloqueado manualmente (tela de Contatos): a mensagem ainda é
+        // salva normalmente, só não recebe resposta automática da IA.
+        if (contact.IsBlocked)
+        {
+            conversation.Status = ConversationStatus.WaitingHuman;
+            await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyConversationUpdated(request.TenantId, conversation.Id);
+            return new ProcessIncomingMessageResult(false, null);
+        }
+
         var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == request.TenantId, ct);
         var currentLocalTime = GetTenantLocalTime(tenant?.TimeZoneId);
 
